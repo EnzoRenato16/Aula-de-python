@@ -1,0 +1,44 @@
+#1
+velocidade = float(input("Digite a velocidade do carro (em km/h):"))
+
+if velocidade > 80:
+    excesso = velocidade - 80
+    multa = excesso * 5
+   print(f"Você foi multado! O valor da multa é R${multa:.2f}.")
+else:
+    print("Você está dentro do limite de velocidade. Dirija com segurança!")
+
+#2
+n1 = float(input("Digite o primeiro número:"))
+n2 = float(input("Digite o segundo número:"))
+n3 = float(input("Digite o terceiro número:"))
+
+maior = max(n1, n2, n3)
+menor = min(n1, n2, n3)
+
+print(f"O maior número é:{maior}")
+print(f"O menor número é:{menor}")
+
+#3
+salario = float(input("Digite o salário do funcionário: R$"))
+
+if salario > 1250:
+    aumento = salario * 0.10
+else:
+    aumento = salario * 0.15
+
+novo_salario = salario + aumento
+
+print(f"Valor do aumento:R${aumento:.2f}")
+print(f"Novo salário:R${novo_salario:.2f}")
+
+#4
+distancia = float(input("Digite a distância que deseja percorrer em km:"))
+
+if distancia <= 200:
+    preco = distancia * 0.50
+else:
+    preco = distancia * 0.45
+
+print(f"O preço da passagem será:R$ {preco:.2f}")
+
