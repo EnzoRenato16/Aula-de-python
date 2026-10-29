@@ -1,0 +1,17 @@
+{
+  "name": "@raiox/seed",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gerador determinístico de clientes sintéticos (nunca dados reais).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@raiox/engine": "workspace:*"
+  }
+}
