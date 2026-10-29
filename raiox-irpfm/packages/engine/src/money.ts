@@ -52,10 +52,12 @@ export function sum(values: Iterable<Dec>): Dec {
   return total;
 }
 
+/** Larger of two values; on a tie returns `a` (so maxDec(ZERO, −0) is +0). */
 export function maxDec(a: Dec, b: Dec): Dec {
-  return a.greaterThan(b) ? a : b;
+  return a.greaterThanOrEqualTo(b) ? a : b;
 }
 
+/** Smaller of two values; on a tie returns `a`. */
 export function minDec(a: Dec, b: Dec): Dec {
-  return a.lessThan(b) ? a : b;
+  return a.lessThanOrEqualTo(b) ? a : b;
 }
