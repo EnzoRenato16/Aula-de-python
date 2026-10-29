@@ -16,6 +16,8 @@ const config: NextConfig = {
   // same compiler as the rest of the monorepo.
   typescript: { ignoreBuildErrors: true },
   poweredByHeader: false,
+  // The repository guide is CLAUDE.md; `next dev` must not write an AGENTS.md.
+  agentRules: false,
   experimental: {
     serverActions: { bodySizeLimit: "10mb" },
   },

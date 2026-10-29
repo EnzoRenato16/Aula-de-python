@@ -36,6 +36,8 @@
   --chart-3: #9aa5ae;
   --chart-4: #b9872f;
   --chart-5: #a3362f;
+  /* Subtracted steps of the waterfall: 3.5:1 against the card, every bar is labeled. */
+  --chart-neutral: #7f8b94;
   --sidebar: #12343b;
   --sidebar-foreground: #e6ecea;
 }
@@ -73,6 +75,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-neutral: var(--chart-neutral);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
 }

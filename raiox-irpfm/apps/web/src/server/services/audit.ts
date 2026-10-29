@@ -13,6 +13,7 @@ export type AuditAction =
   | "calculation.run"
   | "settings.update"
   | "scenario.save"
+  | "scenario.delete"
   | "team.invite"
   | "team.advisor_code"
   | "team.remove"

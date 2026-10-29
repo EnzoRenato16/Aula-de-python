@@ -10,6 +10,7 @@ import { and, eq, inArray, notInArray, type SQL, sql } from "drizzle-orm";
 import { assertManager, isManager, NotFoundError, type OrgContext } from "../context.ts";
 import type { Executor } from "../db/index.ts";
 import { client, company, incomeLine, position } from "../db/schema.ts";
+import { audit } from "./audit.ts";
 
 /**
  * Rows of `client` visible in this context: same organization and year and,
@@ -215,7 +216,9 @@ export async function deleteClient(db: Executor, ctx: OrgContext, code: string):
     .delete(client)
     .where(and(organizationClients(ctx), eq(client.code, code)))
     .returning({ id: client.id });
-  if (deleted.length === 0) throw new NotFoundError(`Cliente ${code} não encontrado.`);
+  const [row] = deleted;
+  if (!row) throw new NotFoundError(`Cliente ${code} não encontrado.`);
+  await audit(db, ctx, "client.delete", "client", row.id, { clientCode: code });
 }
 
 /** Removes the clients of the year that are not in `keepCodes` (import in REPLACE mode). */

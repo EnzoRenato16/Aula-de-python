@@ -52,3 +52,18 @@ export const MONTHS = [
   "nov",
   "dez",
 ];
+
+/** Signed amount for differences: "+R$ 1.000,00", "−R$ 1.000,00", "R$ 0,00". */
+export function signedBrl(value: string): string {
+  const amount = new D(value);
+  if (amount.isZero()) return brl("0.00");
+  return `${amount.isNegative() ? "−" : "+"}${formatBRL(amount.abs())}`;
+}
+
+/** Signed difference of two rates, in percentage points: "+0,52 p.p.". */
+export function signedPoints(value: string, places = 2): string {
+  const points = new D(value).times(100);
+  const text = points.abs().toFixed(places).replace(".", ",");
+  if (points.isZero()) return `0,${"0".repeat(places)} p.p.`;
+  return `${points.isNegative() ? "−" : "+"}${text} p.p.`;
+}
