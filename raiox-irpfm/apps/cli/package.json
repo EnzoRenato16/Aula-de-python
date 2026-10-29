@@ -1,0 +1,18 @@
+{
+  "name": "@raiox/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CLI do Raio-X IRPFM: calcula uma base, gera ranking CSV e PDFs.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@raiox/engine": "workspace:*",
+    "@raiox/io": "workspace:*",
+    "@raiox/report": "workspace:*",
+    "@raiox/seed": "workspace:*",
+    "commander": "15.0.0"
+  }
+}

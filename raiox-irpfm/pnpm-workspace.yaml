@@ -7,5 +7,7 @@ minimumReleaseAge: 4320
 
 # Install scripts are denied by default. esbuild ships prebuilt binaries via
 # optional dependencies; its postinstall only re-checks them, so it stays off.
+# @ibm/plex-sans ships a telemetry postinstall: denied (fonts are plain files).
 allowBuilds:
   esbuild: false
+  "@ibm/plex-sans": false

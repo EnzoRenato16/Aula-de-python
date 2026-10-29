@@ -14,8 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "pnpm -r build",
-    "verify": "pnpm lint && node scripts/check-no-float.mjs && pnpm typecheck && pnpm test && pnpm build",
-    "raiox": "pnpm --filter @raiox/cli exec tsx src/main.ts"
+    "verify": "pnpm lint && node scripts/check-no-float.mjs && node scripts/check-source.mjs && pnpm typecheck && pnpm test && pnpm build",
+    "conferir": "bash scripts/conferir.sh",
+    "raiox": "tsx apps/cli/src/main.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
