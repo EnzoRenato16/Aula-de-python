@@ -36,7 +36,7 @@ const LINE = "#D9DEE2";
 const PAPER = "#F6F4EF";
 const PAY = "#A3362F";
 const REFUND = "#2E6B4F";
-const DEFAULT_PRIMARY = "#12343B";
+export const DEFAULT_PRIMARY = "#12343B";
 const ACCENT = "#B9872F";
 
 const SEVERITY_COLOR: Record<Severity, string> = {
@@ -100,6 +100,7 @@ const styles = StyleSheet.create({
   waterLabel: { width: 170, fontSize: 7.8 },
   waterTrack: { flex: 1, height: 7, backgroundColor: "#EEF0F2", marginHorizontal: 8 },
   waterValue: { width: 82, textAlign: "right", fontSize: 7.8 },
+  waterNote: { fontSize: 6.8, color: MUTED, marginTop: 3 },
   columns: { flexDirection: "row", marginTop: 10 },
   column: { flex: 1 },
   columnGap: { width: 18 },
@@ -158,27 +159,53 @@ function formatDate(date: Date): string {
 interface WaterfallItem {
   label: string;
   value: Dec;
+  /** Length of the bar: for deductions of art. 16-A §3º, only the part they absorb. */
+  bar: Dec;
   kind: "total" | "minus" | "result";
 }
 
 function waterfall(result: ClientResult): WaterfallItem[] {
   const d = result.deductions;
+  const deductions: [string, Dec][] = [
+    [
+      `(−) IRPF do ajuste${d.irpfSource === "ESTIMADO" ? " (estimado)" : d.irpfSource === "AUSENTE" ? " (não informado)" : ""}`,
+      d.irpfAdjustment,
+    ],
+    ["(−) IR exclusivo na fonte", d.exclusiveWithholding],
+    ["(−) IR exterior (Lei 14.754)", d.law14754],
+    ["(−) IR definitivo (bolsa)", d.definitive],
+    ["(−) Redutor (art. 16-B)", d.reducer],
+  ];
+  // The IRPFM due is never negative (§4º): each deduction absorbs at most what is left.
+  let remaining = result.grossMinimumTax;
   const items: WaterfallItem[] = [
-    { label: "IRPFM bruto (alíquota × base)", value: result.grossMinimumTax, kind: "total" },
     {
-      label: `(−) IRPF do ajuste${d.irpfSource === "ESTIMADO" ? " (estimado)" : d.irpfSource === "AUSENTE" ? " (não informado)" : ""}`,
-      value: d.irpfAdjustment,
+      label: "IRPFM bruto (alíquota × base)",
+      value: result.grossMinimumTax,
+      bar: result.grossMinimumTax,
+      kind: "total",
+    },
+    ...deductions.map(([label, value]): WaterfallItem => {
+      const absorbed = value.lessThan(remaining) ? value : remaining;
+      remaining = remaining.minus(absorbed);
+      return { label, value, bar: absorbed, kind: "minus" };
+    }),
+    {
+      label: "= IRPFM devido",
+      value: result.minimumTaxDue,
+      bar: result.minimumTaxDue,
+      kind: "result",
+    },
+    {
+      label: "(−) Retenção sobre dividendos",
+      value: result.withholding.total,
+      bar: result.withholding.total,
       kind: "minus",
     },
-    { label: "(−) IR exclusivo na fonte", value: d.exclusiveWithholding, kind: "minus" },
-    { label: "(−) IR exterior (Lei 14.754)", value: d.law14754, kind: "minus" },
-    { label: "(−) IR definitivo (bolsa)", value: d.definitive, kind: "minus" },
-    { label: "(−) Redutor (art. 16-B)", value: d.reducer, kind: "minus" },
-    { label: "= IRPFM devido", value: result.minimumTaxDue, kind: "result" },
-    { label: "(−) Retenção sobre dividendos", value: result.withholding.total, kind: "minus" },
     {
       label: result.finalBalance.isNegative() ? "= Saldo a restituir" : "= Saldo a pagar",
       value: result.finalBalance.abs(),
+      bar: result.finalBalance.abs(),
       kind: "result",
     },
   ];
@@ -187,16 +214,14 @@ function waterfall(result: ClientResult): WaterfallItem[] {
 
 function Waterfall({ result, primary }: { result: ClientResult; primary: string }) {
   const items = waterfall(result);
-  const scale = items.reduce(
-    (max, item) => (item.value.greaterThan(max) ? item.value : max),
-    new D(0),
-  );
+  const scale = items.reduce((max, item) => (item.bar.greaterThan(max) ? item.bar : max), new D(0));
+  const partial = items.some((item) => item.bar.lessThan(item.value));
   return (
     <View>
       {items.map((item) => {
         const share = scale.isZero()
           ? 0
-          : item.value.dividedBy(scale).times(100).toDecimalPlaces(1).toNumber();
+          : item.bar.dividedBy(scale).times(100).toDecimalPlaces(1).toNumber();
         const color =
           item.kind === "minus"
             ? "#9AA5AE"
@@ -219,6 +244,11 @@ function Waterfall({ result, primary }: { result: ClientResult; primary: string 
           </View>
         );
       })}
+      {partial ? (
+        <Text style={styles.waterNote}>
+          As deduções zeram o IRPFM sem deixá-lo negativo: a barra mostra só a parte usada.
+        </Text>
+      ) : null}
     </View>
   );
 }
