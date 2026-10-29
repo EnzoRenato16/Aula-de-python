@@ -11,7 +11,8 @@ const FORBIDDEN =
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
-    if (name === "node_modules" || name === "dist") return [];
+    // Dependencies and build output are not our source.
+    if (name === "node_modules" || name === "dist" || name === ".next") return [];
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return walk(path);
     return EXTENSIONS.some((extension) => path.endsWith(extension)) ? [path] : [];
