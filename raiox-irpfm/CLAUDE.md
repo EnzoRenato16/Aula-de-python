@@ -24,7 +24,7 @@ raiox-irpfm/
   packages/seed     clientes sintéticos determinísticos (8 perfis)
   apps/cli          `pnpm raiox ...` (pilotos antes do app web)
   tools/conferencia implementação de referência em Python (dupla implementação)
-  apps/web          Next.js (fase 3)
+  apps/web          Next.js: telas, server actions e camada de serviço (src/server/services)
   docs/             BRIEFING, REGRAS, ARQUITETURA, PLANO, CONFERENCIA, DECISOES, SCORE, fontes/
   scripts/          utilidades de CI
 ```
@@ -40,7 +40,10 @@ O projeto mora na subpasta `raiox-irpfm/` do repositório `Aula-de-python` (a in
 | `pnpm typecheck` | `tsc --noEmit` em cada pacote (TypeScript 7) |
 | `pnpm raiox <comando>` | CLI: `calcular`, `template`, `seed`, `regras` (ver `apps/cli/README.md`) |
 | `pnpm conferir` | compara o motor com a implementação de referência em Python (3 × 1.000 clientes) |
-| `docker compose up -d` | Postgres 18 local (fase 3) |
+| `docker compose up -d` | Postgres 18 local (bancos `raiox` e `raiox_test`) |
+| `pnpm --filter @raiox/web dev` | app web em http://localhost:3000 (precisa de `apps/web/.env.local`, ver `.env.example`) |
+| `pnpm --filter @raiox/web db:generate` | gera migration a partir de `src/server/db/schema.ts` (nunca editar SQL gerado à mão) |
+| `DATABASE_URL=... pnpm --filter @raiox/web db:migrate` | aplica as migrations |
 
 ## Convenções
 - Código, identificadores e commits em **inglês**; interface, mensagens, docs de produto e PDFs em **pt-BR**.
@@ -54,9 +57,19 @@ O projeto mora na subpasta `raiox-irpfm/` do repositório `Aula-de-python` (a in
 - Toda mudança de regra: atualize `docs/REGRAS.md`, `rules/<ano>.ts` (suba `version`) e `tools/conferencia/irpfm_referencia.py`; os três são conferidos por testes e pela CI.
 - Mensagens ao usuário não citam anos, limites ou alíquotas fixos: derive da `RuleSet`.
 
+## App web (apps/web)
+- Next.js 16 com App Router. A versão tem mudanças em relação ao que modelos e tutoriais conhecem: a documentação certa está em `apps/web/node_modules/next/dist/docs/` (ex.: `error.tsx` usa `retry()`).
+- Telas leem por Server Components; mutações são Server Actions embrulhadas em `withContext` (`src/server/action.ts`). Só `src/server/services/` fala com o banco e com o motor; toda consulta filtra por `org_id` e, para o assessor, por `advisor_code` (`visibleClients`, `visibleResults`).
+- Regras de papel ficam nos serviços (`assertManager`, `assertOwner`), nunca só na tela. Toda mutação grava na auditoria com códigos e contagens, nunca dados pessoais.
+- Mudou cliente, importação ou premissa: recalcule o escritório (`recalculate`).
+- Formulários: react-hook-form + Zod no navegador; a validação de dados de cliente é a do importador (`packages/io`). Ids de campos em listas vêm de `useId()`, não do `field.id` do useFieldArray (quebra a hidratação).
+- Gráficos: números só para desenhar; valores exibidos vêm das strings decimais do motor (`brl`, `pct`). Todo gráfico tem versão em tabela.
+- Testes do app rodam contra Postgres real (`raiox_test`, recriado a cada execução pelas migrations). `next build` não pode depender de segredos: leia `headers()` antes de chamar `auth()`.
+
 ## Decisões
 Ver `docs/DECISOES.md` (registro de decisões, com data e motivo).
 
 ## Estado atual
-- Fases 0, 1 e 2 (na CLI) feitas; fase 1 aguarda a conferência manual de 5 clientes pelo fundador (`docs/CONFERENCIA.md`).
-- Próximo: fase 3 (app web), conforme `docs/PLANO.md` e `docs/ARQUITETURA.md`.
+- Fases 0 a 3 feitas; a fase 1 aguarda a conferência manual de 5 clientes pelo fundador (`docs/CONFERENCIA.md`).
+- Row-Level Security no Postgres ficou para a fase 5 (D-023).
+- Próximo: fase 4 (logo no PDF, mensagem com IA verificada, lote com pg-boss), conforme `docs/PLANO.md`.

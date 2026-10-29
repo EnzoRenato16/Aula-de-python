@@ -50,3 +50,36 @@ O IR retido sobre salário ou aluguel já está dentro do "IRPF devido no ajuste
 
 ## D-016: Seed com perfis realistas para 2026 (29/10/2026)
 Além de executivos, empresários, médicos com PJ, rentistas, investidores, aposentados e agro, o seed inclui o **sócio que distribui até R$ 50 mil por mês por empresa** para fugir da retenção. É ele que costuma ter IRPFM a pagar no ajuste: quem recebe mais de R$ 50 mil por mês costuma ter a retenção cobrindo o IRPFM e sobrando restituição. Isso é um insight de produto: para a maioria, a conversa é sobre caixa e calendário, não sobre imposto novo.
+
+## D-017: TypeScript 7 também no app web (29/10/2026)
+O Next.js ainda não usa o compilador nativo do TypeScript 7 no build. O `next build` roda com `typescript.ignoreBuildErrors: true` e a checagem de tipos fica com `tsc` 7 (`pnpm typecheck`), o mesmo compilador do resto do monorepo; a CI roda os dois. Assim não há dois compiladores com regras diferentes.
+
+## D-018: Dependências do shadcn e do drizzle-kit (29/10/2026)
+O instalador do shadcn adicionou o pacote `cn` do npm e o `next-themes`; os dois saíram (o `cn` é a função de `src/lib/utils.ts`, e o app não tem tema escuro no MVP). O `pnpm audit` acusou um esbuild antigo dentro do drizzle-kit: um `override` fixa o esbuild 0.28.2, e o drizzle-kit continua gerando as migrations.
+
+## D-019: Papéis e o que cada um faz (29/10/2026)
+Os papéis do Better Auth são `owner`, `admin` e `member`, mostrados como Dono, Admin e Assessor. Dono e admin veem todos os clientes e fazem tudo, exceto mudar papéis, que é só do dono. O assessor vê só os clientes com o `codigo_assessor` dele (sem código, não vê nenhum), simula e salva cenários e baixa PDFs desses clientes; não importa, não edita, não exclui, não muda premissas, não gerencia a equipe e não vê a auditoria. Ninguém muda o próprio acesso pela tela Equipe.
+
+## D-020: Importação em dois passos, mesclar ou substituir (29/10/2026)
+O upload gera uma prévia (nada muda na base) com erros e avisos por linha. Na confirmação, **mesclar** (padrão) cria e atualiza os clientes da planilha e mantém os demais; **substituir** também remove os clientes do ano que não estão na planilha. Planilha com erros só entra se a pessoa marcar que quer importar apenas as linhas válidas. Depois da confirmação, o conteúdo da planilha não fica guardado; ficam o hash, as contagens e o relatório de problemas.
+
+## D-021: Cadastro manual validado pelo importador (29/10/2026)
+O formulário de cliente vira uma planilha de um cliente e passa pelo mesmo `importWorkbook` da importação. As duas portas de entrada seguem exatamente as mesmas regras (LGPD, códigos, meses, empresas, D-014), e os problemas voltam para o campo certo do formulário.
+
+## D-022: A ficha calcula na hora; o painel usa a última rodada (29/10/2026)
+O painel lê os resultados gravados na última rodada de cálculo. A ficha e o PDF recalculam o cliente com as premissas atuais, o que dá o resultado completo do motor para o resumo e o PDF. Os dois coincidem porque toda mudança de cliente, importação ou premissa dispara o recálculo do escritório.
+
+## D-023: Row-Level Security fica para a fase 5 **[revisar]** (29/10/2026)
+A arquitetura previa RLS no Postgres já na fase 3. Ficou para a fase 5: com conexão em pool, cada requisição precisaria de uma transação com `SET LOCAL app.org_id`, o que muda o acesso ao banco inteiro. Hoje o isolamento está na camada de serviço (todo acesso a tabela de negócio filtra por `org_id`, e por assessor quando é o caso) e é provado por testes automatizados de leitura, alteração e exclusão entre escritórios e entre assessores. RLS entra como segunda camada na fase 5.
+
+## D-024: Convite por link, sem e-mail (29/10/2026)
+O app ainda não envia e-mail. O convite gera um link que o dono ou admin copia e manda para a pessoa; o link só vale para o e-mail convidado e expira em 7 dias. O código de assessor vai no convite e é aplicado quando ele é aceito. Envio de e-mail entra com o provedor de e-mail, na fase 5.
+
+## D-025: Premissas guardam só o que difere do padrão (29/10/2026)
+O escritório guarda apenas as escolhas PENDENTES que diferem do padrão do motor. Se uma nova versão das regras mudar um padrão, ele chega a quem nunca mexeu naquela escolha. O denominador do redutor (R-16B-05) não é configurável: a alternativa contraria o art. 16-A, §1º, XII.
+
+## D-026: Cascata mostra o que cada dedução abate (29/10/2026)
+O IRPFM devido nunca fica negativo (§4º), então uma dedução maior que o IRPFM restante só abate até zerar. Na ficha e no PDF, a barra de cada dedução mostra a parte usada, e o valor cheio continua escrito ao lado. A retenção sobre dividendos aparece inteira: ela é antecipação e pode gerar restituição.
+
+## D-027: Fontes do PDF no app web (29/10/2026)
+O bundler do Next reescreve a resolução de módulos dentro dos pacotes, e o PDF quebrava ao procurar a fonte. O gerador de PDF recebe a pasta dos arquivos da fonte; a CLI continua resolvendo pelo Node, e o app web informa a pasta dele e inclui os arquivos no build de produção.

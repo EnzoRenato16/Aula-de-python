@@ -15,6 +15,18 @@ pnpm raiox calcular --entrada ./demo/clientes-sinteticos.xlsx --saida ./demo/res
 
 Requisitos: Node 22 e pnpm 12 (`npm i -g pnpm@12.16.1`). Python 3 só para a conferência independente.
 
+## App web
+
+```bash
+cd raiox-irpfm
+docker compose up -d                      # Postgres 18 com os bancos raiox e raiox_test
+cp .env.example apps/web/.env.local       # preencha BETTER_AUTH_SECRET (openssl rand -base64 32)
+DATABASE_URL=postgres://raiox:raiox_dev_only@localhost:5432/raiox pnpm --filter @raiox/web db:migrate
+pnpm --filter @raiox/web dev              # http://localhost:3000
+```
+
+Crie a conta em `/criar-conta` (ela cria o escritório), importe uma base sintética gerada com `pnpm raiox seed` e explore o painel, as fichas e os cenários. Os testes do app (`pnpm test`) precisam do banco `raiox_test`, criado pelo `docker compose` na primeira subida do volume.
+
 ## Documentos
 
 | Documento | Para quê |

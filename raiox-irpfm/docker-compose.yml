@@ -12,6 +12,7 @@ services:
       - "5432:5432"
     volumes:
       - raiox-pg:/var/lib/postgresql
+      - ./scripts/db-init.sql:/docker-entrypoint-initdb.d/10-test-database.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U raiox -d raiox"]
       interval: 5s
