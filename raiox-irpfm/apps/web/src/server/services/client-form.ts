@@ -334,7 +334,7 @@ export async function clientFormValues(
 
 const LIMIT_NAME: Record<ReducerLimitCategory, string> = {
   GERAL: "Geral",
-  FINANCEIRA: "Financeira",
+  FINANCEIRA: "Seguradora ou financeira",
   BANCO: "Banco",
 };
 
