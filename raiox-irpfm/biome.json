@@ -14,7 +14,10 @@
       "!docs/fontes",
       "!**/*.xlsx",
       "!pnpm-lock.yaml",
-      "!**/*.md"
+      "!**/*.md",
+      "!**/.next",
+      "!apps/web/drizzle/meta",
+      "!apps/web/next-env.d.ts"
     ]
   },
   "formatter": {
@@ -50,6 +53,11 @@
       "source": {
         "organizeImports": "on"
       }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   }
 }

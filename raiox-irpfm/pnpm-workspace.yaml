@@ -11,3 +11,8 @@ minimumReleaseAge: 4320
 allowBuilds:
   esbuild: false
   "@ibm/plex-sans": false
+
+# drizzle-kit still depends on @esbuild-kit/core-utils, which pins an esbuild
+# affected by GHSA-67mh-4wv8-2f99 (dev-server CORS). Force the patched esbuild.
+overrides:
+  "@esbuild-kit/core-utils>esbuild": 0.28.2

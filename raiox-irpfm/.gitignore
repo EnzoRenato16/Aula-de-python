@@ -9,3 +9,4 @@ coverage/
 !.env.example
 resultado/
 /tmp/
+next-env.d.ts
