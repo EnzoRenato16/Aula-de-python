@@ -8,7 +8,8 @@ import { type ClientResult, formatBRL, formatPercent, getRuleSet } from "@raiox/
  */
 export function summarySentences(result: ClientResult): string[] {
   const sentences: string[] = [];
-  const { threshold } = getRuleSet(result.calendarYear).minimumTax;
+  const ruleSet = getRuleSet(result.calendarYear);
+  const { threshold } = ruleSet.minimumTax;
   const declaration = result.calendarYear + 1;
   if (!result.subjectToMinimumTax) {
     sentences.push(
@@ -30,7 +31,7 @@ export function summarySentences(result: ClientResult): string[] {
 
   if (result.withholding.total.greaterThan(0)) {
     sentences.push(
-      `A retenção de 10% sobre dividendos soma ${formatBRL(result.withholding.total)} no ano e é antecipação do imposto.`,
+      `A retenção de ${formatPercent(ruleSet.monthlyWithholding.rate, 0)} sobre dividendos soma ${formatBRL(result.withholding.total)} no ano e é antecipação do imposto.`,
     );
   }
   if (result.amountToPay.greaterThan(0)) {

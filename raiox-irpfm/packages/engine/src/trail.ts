@@ -31,6 +31,8 @@ const STRATEGY_LABEL: Record<ReducerStrategy, string> = {
 };
 
 const ONE = new D(1);
+/** Decimal places (in percent) of the transition-band rate shown in the trail. */
+const AUDIT_RATE_PLACES = 8;
 
 function brlStep(
   id: string,
@@ -144,6 +146,14 @@ export function buildTrail(
     legalRef: "Lei 9.250, art. 16-A, caput",
   });
 
+  // In the linear band the rate has infinitely many decimals, so "rate × base"
+  // with a printed rate can miss a cent. The gross tax is shown with the exact
+  // equivalent formula instead: base² ÷ (divisor × 100) − offset% × base.
+  const inBand =
+    result.subjectToMinimumTax &&
+    result.base.greaterThan(minimumTax.threshold) &&
+    result.base.lessThan(minimumTax.fullRateFrom);
+  const ratePlaces = inBand ? AUDIT_RATE_PLACES : 4;
   let rateFormula: string;
   let rateRules: string[];
   if (!result.subjectToMinimumTax || result.base.lessThanOrEqualTo(minimumTax.threshold)) {
@@ -153,7 +163,7 @@ export function buildTrail(
     rateFormula = `Base ${formatBRL(result.base)} ≥ ${formatBRL(minimumTax.fullRateFrom)} → ${formatPercent(minimumTax.maxRate)}`;
     rateRules = ["R-16A-12"];
   } else {
-    rateFormula = `${formatBRL(result.base)} ÷ ${formatNumber(minimumTax.linearDivisor)} − ${formatNumber(minimumTax.linearOffset)} = ${formatPercent(result.rate)}`;
+    rateFormula = `${formatBRL(result.base)} ÷ ${formatNumber(minimumTax.linearDivisor)} − ${formatNumber(minimumTax.linearOffset)} = ${formatPercent(result.rate, ratePlaces)} (sem arredondar)`;
     rateRules = ["R-16A-11", "R-16A-13"];
   }
   steps.push({
@@ -170,7 +180,9 @@ export function buildTrail(
     brlStep(
       "irpfm-bruto",
       "IRPFM bruto",
-      `${formatPercent(result.rate)} × ${formatBRL(result.base)} = ${formatBRL(result.grossMinimumTax)}`,
+      inBand
+        ? `${formatBRL(result.base)}² ÷ ${formatNumber(minimumTax.linearDivisor.times(100))} − ${formatNumber(minimumTax.linearOffset)}% × ${formatBRL(result.base)} = ${formatBRL(result.grossMinimumTax)} (igual a alíquota × base, sem arredondar a alíquota)`
+        : `${formatPercent(result.rate, ratePlaces)} × ${formatBRL(result.base)} = ${formatBRL(result.grossMinimumTax)}`,
       result.grossMinimumTax,
       ["R-16A-14", "R-ARR-01"],
       "Lei 9.250, art. 16-A, §3º, caput",

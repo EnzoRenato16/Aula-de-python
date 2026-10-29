@@ -101,7 +101,7 @@ function readmeSheet(ruleSet: RuleSet) {
     "1. Abas: clientes (opcional), empresas (opcional), rendimentos (obrigatória), posicoes (opcional, para cenários).",
     "2. A primeira linha de cada aba é o cabeçalho: não renomeie as colunas.",
     "3. Rendimentos em formato longo: uma linha por cliente × tipo de rendimento × mês.",
-    "   Dividendos precisam de mês e codigo_empresa (a retenção de 10% é mensal, por empresa).",
+    `   Dividendos precisam de mês e codigo_empresa (a retenção de ${ruleSet.monthlyWithholding.rate.times(100).toString()}% é mensal, por empresa).`,
     "4. Regime de caixa: informe o que foi RECEBIDO ou REALIZADO no ano (CDB conta no resgate ou no vencimento).",
     "5. Valores: 60.000,00 ou 60000,00. Taxas: 32% ou 0,32.",
     "6. Apague as linhas de EXEMPLO antes de importar.",

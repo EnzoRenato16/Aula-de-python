@@ -1,5 +1,7 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { calculateClient } from "./calculate.ts";
+import { D } from "./money.ts";
 import type { ClientInput } from "./types.ts";
 
 const mixed: ClientInput = {
@@ -53,7 +55,7 @@ describe("trilha de cálculo", () => {
     const base = result.trail.find((step) => step.id === "base");
     expect(base?.formula).toBe("R$ 1.020.000,00 − R$ 360.000,00 = R$ 660.000,00");
     const rate = result.trail.find((step) => step.id === "aliquota");
-    expect(rate?.formula).toBe("R$ 660.000,00 ÷ 60.000 − 10 = 1,0000%");
+    expect(rate?.formula).toBe("R$ 660.000,00 ÷ 60.000 − 10 = 1,00000000% (sem arredondar)");
     const withholding = result.trail.find((step) => step.id === "retencao");
     expect(withholding?.children?.map((child) => child.formula)).toEqual([
       "10% × R$ 70.000,00 = R$ 7.000,00",
@@ -148,5 +150,46 @@ describe("alíquota marginal: tipos com IR próprio desconhecido", () => {
     expect(types).not.toContain("PLR");
     expect(types).not.toContain("GANHO_CAPITAL");
     expect(types).toContain("SALARIO");
+  });
+});
+
+describe("trilha auditável à mão", () => {
+  const gross = (base: string) =>
+    calculateClient(
+      { clientCode: "C", irpfAdjustmentDue: "0", incomes: [{ type: "SALARIO", amount: base }] },
+      { skipMarginal: true },
+    ).trail.find((step) => step.id === "irpfm-bruto")?.formula;
+
+  it("na faixa de transição mostra a fórmula exata, que fecha na calculadora", () => {
+    expect(gross("700000.00")).toBe(
+      "R$ 700.000,00² ÷ 6.000.000 − 10% × R$ 700.000,00 = R$ 11.666,67 (igual a alíquota × base, sem arredondar a alíquota)",
+    );
+    // Caso de fronteira encontrado pelo teste de propriedade.
+    // 1.199.999,75² ÷ 6.000.000 − 119.999,975 = 119.999,925000010… → R$ 119.999,93
+    expect(gross("1199999.75")).toContain("= R$ 119.999,93");
+  });
+
+  it("a fórmula exata reproduz o IRPFM bruto em qualquer base da faixa", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 60_000_001, max: 119_999_999 }), (cents) => {
+        const base = new D(cents).dividedBy(100);
+        const byHand = base
+          .times(base)
+          .dividedBy(6_000_000)
+          .minus(base.times("0.1"))
+          .toDecimalPlaces(2, D.ROUND_HALF_UP);
+        expect(gross(base.toFixed(2))).toContain(
+          `= R$ ${byHand
+            .toFixed(2)
+            .replace(".", ",")
+            .replace(/\B(?=(\d{3})+(?!\d))/g, ".")} (`,
+        );
+      }),
+      { numRuns: 2000 },
+    );
+  });
+
+  it("fora da faixa mostra alíquota × base", () => {
+    expect(gross("2000000.00")).toBe("10,0000% × R$ 2.000.000,00 = R$ 200.000,00");
   });
 });

@@ -58,7 +58,7 @@ export function buildAlerts(
     alerts.push({
       code: "RETENCAO_MENSAL",
       severity: "atencao",
-      message: `Retenção de 10% sobre dividendos em ${months} mês(es): ${formatBRL(result.withholding.total)} antecipados no ano.`,
+      message: `Retenção de ${formatPercent(ruleSet.monthlyWithholding.rate, 0)} sobre dividendos em ${months} mês(es): ${formatBRL(result.withholding.total)} antecipados no ano.`,
       ruleIds: ["R-6A-01"],
     });
   }
