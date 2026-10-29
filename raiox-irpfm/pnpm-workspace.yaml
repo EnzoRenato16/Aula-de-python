@@ -4,3 +4,8 @@ packages:
 
 # Supply-chain guard: never install a version published less than 3 days ago.
 minimumReleaseAge: 4320
+
+# Install scripts are denied by default. esbuild ships prebuilt binaries via
+# optional dependencies; its postinstall only re-checks them, so it stays off.
+allowBuilds:
+  esbuild: false

@@ -1,0 +1,22 @@
+{
+  "name": "@raiox/io",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Template de importação, leitura de XLSX/CSV, validação e relatório de erros por linha.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@raiox/engine": "workspace:*",
+    "csv-parse": "7.0.3",
+    "csv-stringify": "6.9.0",
+    "read-excel-file": "9.3.12",
+    "write-excel-file": "4.1.1",
+    "zod": "4.6.7"
+  }
+}
