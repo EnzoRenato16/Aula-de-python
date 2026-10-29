@@ -10,7 +10,7 @@ import { getClientResult, listResults, recalculate } from "./calculation.ts";
 import { deleteClient, loadClientInputs } from "./clients.ts";
 import { confirmImport, discardImport, getBatch, ImportError, previewImport } from "./imports.ts";
 import { runScenario } from "./scenarios.ts";
-import { getSettings, updateSettings } from "./settings.ts";
+import { getSettings, updatePremises } from "./settings.ts";
 
 const RENDIMENTOS_HEADER =
   "codigo_cliente;tipo_rendimento;mes;valor;ir_retido_ou_pago;codigo_empresa;regra_transicao";
@@ -156,7 +156,7 @@ describe("importação e cálculo", () => {
     const standard = await getClientResult(db, ctx, "A");
     expect(standard.minimumTaxDue).toBe("0.00"); // IRPF estimado cobre o IRPFM
 
-    await updateSettings(db, ctx, { conservative: true, choices: {}, primaryColor: null });
+    await updatePremises(db, ctx, { conservative: true, choices: {} });
     expect((await getSettings(db, ctx.orgId)).conservative).toBe(true);
     await recalculate(db, ctx);
     const conservative = await getClientResult(db, ctx, "A");
@@ -281,9 +281,9 @@ describe("papéis", () => {
       previewImport(db, advisor, csvFile([RENDIMENTOS_HEADER, "A;SALARIO;;100;;;"])),
     ).rejects.toThrow(ForbiddenError);
     await expect(deleteClient(db, advisor, "A")).rejects.toThrow(ForbiddenError);
-    await expect(
-      updateSettings(db, advisor, { conservative: true, choices: {}, primaryColor: null }),
-    ).rejects.toThrow(ForbiddenError);
+    await expect(updatePremises(db, advisor, { conservative: true, choices: {} })).rejects.toThrow(
+      ForbiddenError,
+    );
     const admin = await addMember(owner, "admin");
     await expect(
       previewImport(db, admin, csvFile([RENDIMENTOS_HEADER, "A;SALARIO;;100;;;"])),
