@@ -21,12 +21,83 @@ function walk(dir) {
   });
 }
 
+/**
+ * Blanks out comments and string/template literal contents (keeping line
+ * breaks) so legal citations such as "Lei 9.250" are not mistaken for floats.
+ * Template expressions `${...}` are kept, since they are code.
+ */
+function stripNonCode(source) {
+  let out = "";
+  let i = 0;
+  const templateDepth = [];
+  while (i < source.length) {
+    const ch = source[i];
+    const next = source[i + 1];
+    if (ch === "/" && next === "/") {
+      while (i < source.length && source[i] !== "\n") i++;
+      continue;
+    }
+    if (ch === "/" && next === "*") {
+      i += 2;
+      while (i < source.length && !(source[i] === "*" && source[i + 1] === "/")) {
+        out += source[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      i += 2;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      out += ch;
+      i++;
+      while (i < source.length && source[i] !== ch) {
+        if (source[i] === "\\") i++;
+        i++;
+      }
+      out += ch;
+      i++;
+      continue;
+    }
+    if (ch === "`" || (ch === "}" && templateDepth.at(-1) === 0)) {
+      if (ch === "}") templateDepth.pop();
+      out += "`";
+      i++;
+      while (i < source.length && source[i] !== "`") {
+        if (source[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (source[i] === "$" && source[i + 1] === "{") {
+          templateDepth.push(0);
+          out += "${";
+          i += 2;
+          break;
+        }
+        out += source[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      if (source[i] === "`") {
+        out += "`";
+        i++;
+      }
+      continue;
+    }
+    if (templateDepth.length > 0) {
+      if (ch === "{") templateDepth[templateDepth.length - 1]++;
+      if (ch === "}") templateDepth[templateDepth.length - 1]--;
+    }
+    out += ch;
+    i++;
+  }
+  return out;
+}
+
 const violations = [];
 for (const root of ROOTS) {
   for (const file of walk(root)) {
-    const lines = readFileSync(file, "utf8").split("\n");
-    lines.forEach((line, index) => {
-      const code = line.replace(/\/\/.*$/, "");
+    const raw = readFileSync(file, "utf8").split("\n");
+    const lines = stripNonCode(raw.join("\n")).split("\n");
+    lines.forEach((code, index) => {
+      const line = raw[index] ?? "";
       for (const { pattern, why } of FORBIDDEN) {
         if (pattern.test(code) && !line.includes("float-guard: allow")) {
           violations.push(`${relative(process.cwd(), file)}:${index + 1}  ${why}: ${line.trim()}`);
