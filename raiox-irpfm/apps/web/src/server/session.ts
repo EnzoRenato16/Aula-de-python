@@ -5,8 +5,15 @@ import { auth } from "./auth.ts";
 import { isManager, loadContext, type OrgContext } from "./context.ts";
 import { db } from "./db/index.ts";
 
-/** Session of the current request (memoized per request). */
-export const getSession = cache(async () => auth().api.getSession({ headers: await headers() }));
+/**
+ * Session of the current request (memoized per request). Reading the headers
+ * first makes every caller dynamic before auth() needs the runtime secrets,
+ * so `next build` never evaluates them.
+ */
+export const getSession = cache(async () => {
+  const requestHeaders = await headers();
+  return auth().api.getSession({ headers: requestHeaders });
+});
 
 /** Organization context of the current request, or null. */
 export const getCurrentContext = cache(async (): Promise<OrgContext | null> => {
