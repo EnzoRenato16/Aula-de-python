@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ClientInput, PayerInput } from "@raiox/engine";
+import { type ClientInput, getRuleSet, type PayerInput, type RuleSet } from "@raiox/engine";
 import {
   type ImportIssue,
   type ImportResult,
@@ -37,6 +37,7 @@ export interface BatchPayload {
 async function parseFile(
   fileName: string,
   bytes: Buffer,
+  ruleSet: RuleSet,
 ): Promise<ImportResult & { companies: PayerInput[] }> {
   const lower = fileName.toLowerCase();
   let workbook: Awaited<ReturnType<typeof readXlsxWorkbook>>;
@@ -47,7 +48,7 @@ async function parseFile(
   } else {
     throw new ImportError("Envie o template preenchido (.xlsx) ou um .csv de rendimentos.");
   }
-  const result = importWorkbook(workbook);
+  const result = importWorkbook(workbook, { ruleSet });
   const companies = new Map<string, PayerInput>();
   for (const client of result.clients)
     for (const payer of client.payers ?? []) companies.set(payer.code, payer);
@@ -70,7 +71,7 @@ export async function previewImport(
   }
   let parsed: Awaited<ReturnType<typeof parseFile>>;
   try {
-    parsed = await parseFile(file.name, file.bytes);
+    parsed = await parseFile(file.name, file.bytes, getRuleSet(ctx.calendarYear));
   } catch (error) {
     if (error instanceof ImportError) throw error;
     const detail =
