@@ -45,6 +45,9 @@ jobs:
       - name: Money guard (no floats in the engine)
         run: node scripts/check-no-float.mjs
 
+      - name: Source guard (no invisible characters)
+        run: node scripts/check-source.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -53,3 +56,11 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      - name: Differential check against the independent Python reference
+        run: |
+          for seed in 1 2 3; do
+            pnpm -s raiox seed --saida "$RUNNER_TEMP/seed-$seed.xlsx" --clientes 1000 --semente "$seed"
+            pnpm -s raiox calcular --entrada "$RUNNER_TEMP/seed-$seed.xlsx" --saida "$RUNNER_TEMP/resultado-$seed" --sem-pdf
+            python3 tools/conferencia/irpfm_referencia.py "$RUNNER_TEMP/resultado-$seed"
+          done
