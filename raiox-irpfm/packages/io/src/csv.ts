@@ -17,7 +17,7 @@ export function toBrazilianCsv(
       quoted_match: /[;"\r\n]/,
     },
   );
-  return `﻿${body}`;
+  return `\uFEFF${body}`;
 }
 
 /** "1234.56" → "1234,56" (no thousands separator, so Excel reads it as a number). */

@@ -1,9 +1,9 @@
 import { parse as parseCsv } from "csv-parse/sync";
 import readXlsxFile from "read-excel-file/node";
-import { normalizeHeader, SHEET_ORDER, type SheetKey } from "./schema.ts";
+import { normalizeHeader, SHEET_ORDER, SHEETS, type SheetKey } from "./schema.ts";
 import type { Cell } from "./values.ts";
 
-/** One data row; `rowNumber` is the spreadsheet row (header = 1). */
+/** One data row; `rowNumber` is the spreadsheet row as Excel shows it (1-based). */
 export interface RawRow {
   rowNumber: number;
   cells: Map<string, Cell>;
@@ -11,6 +11,8 @@ export interface RawRow {
 
 export interface RawSheet {
   name: string;
+  /** Spreadsheet row of the header (1-based). */
+  headerRow: number;
   headers: string[];
   rows: RawRow[];
 }
@@ -40,9 +42,25 @@ export function sheetKeyOf(name: string): SheetKey | null {
   return SHEET_ORDER.find((key) => normalized === key || normalized.endsWith(`_${key}`)) ?? null;
 }
 
-function buildSheet(name: string, data: readonly (readonly unknown[])[]): RawSheet {
-  const [headerRow = [], ...body] = data;
-  const headers = headerRow.map((value) => normalizeHeader(toCell(value)?.text ?? ""));
+/** How many leading rows may hold titles or notes before the header row. */
+const HEADER_SEARCH_ROWS = 10;
+
+function normalizedRow(row: readonly unknown[]): string[] {
+  return row.map((value) => normalizeHeader(toCell(value)?.text ?? ""));
+}
+
+/**
+ * Builds a sheet from raw rows. The header is the first of the leading rows
+ * that names a known column of the sheet (so a title row above it is fine).
+ */
+function buildSheet(name: string, key: SheetKey, data: readonly (readonly unknown[])[]): RawSheet {
+  const known = new Set(SHEETS[key].columns.map((column) => column.key));
+  const found = data
+    .slice(0, HEADER_SEARCH_ROWS)
+    .findIndex((row) => normalizedRow(row).some((header) => known.has(header)));
+  const headerIndex = found === -1 ? 0 : found;
+  const headers = normalizedRow(data[headerIndex] ?? []);
+  const body = data.slice(headerIndex + 1);
   if (body.length > MAX_ROWS) {
     throw new Error(`A aba "${name}" tem ${body.length} linhas; o limite é ${MAX_ROWS}.`);
   }
@@ -54,9 +72,9 @@ function buildSheet(name: string, data: readonly (readonly unknown[])[]): RawShe
       const cell = toCell(values[column]);
       if (cell) cells.set(header, cell);
     });
-    if (cells.size > 0) rows.push({ rowNumber: index + 2, cells });
+    if (cells.size > 0) rows.push({ rowNumber: headerIndex + index + 2, cells });
   });
-  return { name, headers: headers.filter(Boolean), rows };
+  return { name, headerRow: headerIndex + 1, headers: headers.filter(Boolean), rows };
 }
 
 /** Reads an .xlsx file. Numeric cells keep their exact stored text. */
@@ -67,13 +85,13 @@ export async function readXlsxWorkbook(input: Buffer | string): Promise<RawWorkb
   const workbook: RawWorkbook = new Map();
   for (const { sheet, data } of sheets) {
     const key = sheetKeyOf(sheet);
-    if (key) workbook.set(key, buildSheet(sheet, data));
+    if (key) workbook.set(key, buildSheet(sheet, key, data));
   }
   return workbook;
 }
 
 function detectDelimiter(content: string): ";" | "," | "\t" {
-  const firstLine = content.replace(/^﻿/, "").split(/\r?\n/, 1)[0] ?? "";
+  const firstLine = content.replace(/^\uFEFF/, "").split(/\r?\n/, 1)[0] ?? "";
   const counts = { ";": 0, ",": 0, "\t": 0 } as Record<";" | "," | "\t", number>;
   for (const char of firstLine) if (char in counts) counts[char as ";" | "," | "\t"]++;
   if (counts[";"] >= counts[","] && counts[";"] >= counts["\t"]) return ";";
@@ -95,7 +113,7 @@ export function readCsvWorkbook(files: readonly { name: string; content: string 
       skip_empty_lines: true,
       relax_column_count: true,
     }) as string[][];
-    workbook.set(key, buildSheet(file.name, records));
+    workbook.set(key, buildSheet(file.name, key, records));
   }
   return workbook;
 }

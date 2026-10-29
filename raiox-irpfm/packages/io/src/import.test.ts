@@ -125,6 +125,8 @@ describe("validação por linha", () => {
           "codigo_cliente;apelido",
           "CLI-1;Maria Aparecida Souza",
           "CLI-2;contato@exemplo.com",
+          "CLI-3;Cliente Leblon",
+          "CLI-4;Família Tavares",
           "12.345.678/0001-95;ok",
         ]),
       },
@@ -141,7 +143,56 @@ describe("validação por linha", () => {
       true,
     );
     expect(messages.some((m) => m.startsWith("erro:3:") && m.includes("e-mail"))).toBe(true);
-    expect(messages.some((m) => m.startsWith("erro:4:") && m.includes("CNPJ"))).toBe(true);
+    expect(messages.some((m) => m.startsWith("erro:6:") && m.includes("CNPJ"))).toBe(true);
+    expect(messages.some((m) => m.includes(":4:") || m.includes(":5:"))).toBe(false);
+  });
+
+  it("aceita linha de título acima do cabeçalho e mantém o número de linha do Excel", () => {
+    const workbook = readCsvWorkbook([
+      {
+        name: "rendimentos.csv",
+        content: csv([
+          "Base do escritório - outubro;;",
+          "codigo_cliente;tipo_rendimento;valor",
+          "CLI-1;SALARIO;1000",
+          "CLI-1;SALARIO;abc",
+        ]),
+      },
+    ]);
+    const result = importWorkbook(workbook);
+    expect(result.clients[0]?.incomes).toHaveLength(1);
+    expect(result.issues.find((issue) => issue.severity === "erro")?.row).toBe(4);
+  });
+
+  it("ignora IR informado em salário (já está no IRPF do ajuste) e avisa", () => {
+    const result = importWorkbook(
+      readCsvWorkbook([
+        {
+          name: "rendimentos.csv",
+          content: csv([
+            "codigo_cliente;tipo_rendimento;valor;ir_retido_ou_pago",
+            "CLI-1;SALARIO;900000;240000",
+            "CLI-1;RENDA_FIXA;100000;15000",
+          ]),
+        },
+      ]),
+    );
+    expect(result.clients[0]?.incomes).toEqual([
+      { type: "SALARIO", amount: "900000.00" },
+      { type: "RENDA_FIXA", amount: "100000.00", taxWithheld: "15000.00" },
+    ]);
+    const warning = result.issues.find((issue) => issue.column === "ir_retido_ou_pago");
+    expect(warning?.row).toBe(2);
+    expect(warning?.message).toContain("duas vezes");
+  });
+
+  it("erro de coluna aponta a linha real do cabeçalho", () => {
+    const result = importWorkbook(
+      readCsvWorkbook([
+        { name: "rendimentos.csv", content: csv(["Título", "codigo_cliente;valor", "CLI-1;10"]) },
+      ]),
+    );
+    expect(result.issues.find((issue) => issue.column === "tipo_rendimento")?.row).toBe(2);
   });
 
   it("exige a aba rendimentos e suas colunas obrigatórias", () => {
@@ -164,7 +215,7 @@ describe("validação por linha", () => {
       ]),
     );
     const report = issuesToCsv(result.issues);
-    expect(report.startsWith("﻿gravidade;aba;linha;coluna;valor;mensagem\r\n")).toBe(true);
+    expect(report.startsWith("\uFEFFgravidade;aba;linha;coluna;valor;mensagem\r\n")).toBe(true);
     expect(report).toContain("erro;rendimentos;2;valor;x;");
   });
 });

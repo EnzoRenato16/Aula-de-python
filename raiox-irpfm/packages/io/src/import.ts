@@ -58,11 +58,31 @@ interface CellOutput<T> {
 
 const LIMIT_CATEGORIES: readonly ReducerLimitCategory[] = ["GERAL", "FINANCEIRA", "BANCO"];
 const FULL_NAME = /^[A-ZÀ-Ý][a-zà-ÿ]+(\s+(d[aeo]s?|e|[A-ZÀ-Ý][a-zà-ÿ]+))+$/;
+/** Nicknames starting with these words are descriptive, not personal names. */
+const GENERIC_PREFIXES = new Set([
+  "cliente",
+  "familia",
+  "agro",
+  "holding",
+  "grupo",
+  "investidor",
+  "empresa",
+  "fazenda",
+]);
+
+function looksLikeFullName(nickname: string): boolean {
+  const first = nickname
+    .split(/\s+/)[0]
+    ?.normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  return FULL_NAME.test(nickname) && !GENERIC_PREFIXES.has(first ?? "");
+}
 
 function normalizeToken(text: string): string {
   return text
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase()
     .replace(/[\s-]+/g, "_");
@@ -92,7 +112,7 @@ function parseByKind(
       if (value.length > 40) return { ok: false, error: "apelido com mais de 40 caracteres" };
       return {
         ok: true,
-        output: FULL_NAME.test(value)
+        output: looksLikeFullName(value)
           ? {
               value,
               warning:
@@ -224,21 +244,24 @@ function parseSheetRows(
     return [];
   }
   const known = new Set(definition.columns.map((column) => column.key));
-  for (const column of definition.columns) {
-    if (column.required && !raw.headers.includes(column.key)) {
-      issues.error(sheet, 1, column.key, null, `coluna obrigatória "${column.key}" não encontrada`);
-    }
+  const missing = definition.columns.filter(
+    (column) => column.required && !raw.headers.includes(column.key),
+  );
+  for (const column of missing) {
+    issues.error(
+      sheet,
+      raw.headerRow,
+      column.key,
+      null,
+      `coluna obrigatória "${column.key}" não encontrada`,
+    );
   }
   for (const header of raw.headers) {
-    if (!known.has(header)) issues.warning(sheet, 1, header, null, `coluna "${header}" ignorada`);
+    if (!known.has(header)) {
+      issues.warning(sheet, raw.headerRow, header, null, `coluna "${header}" ignorada`);
+    }
   }
-  if (
-    issues.issues.some(
-      (issue) => issue.sheet === sheet && issue.row === 1 && issue.severity === "erro",
-    )
-  ) {
-    return [];
-  }
+  if (missing.length > 0) return [];
 
   const schema = rowSchema(sheet, ruleSet);
   const parsed: { row: RawRow; values: ParsedRow }[] = [];
@@ -404,14 +427,16 @@ export function importWorkbook(
         "regra_transicao só vale para DIVIDENDOS; ignorada",
       );
     }
-    if (tax !== undefined && type === "DIVIDENDOS") {
-      issues.warning(
-        sheet,
-        row.rowNumber,
-        "ir_retido_ou_pago",
-        tax,
-        "a retenção sobre dividendos é calculada pelo motor; valor informado ignorado",
-      );
+    const regime = definition?.regime;
+    const taxApplies = regime === "EXCLUSIVA" || regime === "DEFINITIVA" || regime === "LEI_14754";
+    if (tax !== undefined && !taxApplies) {
+      const reason =
+        type === "DIVIDENDOS"
+          ? "a retenção sobre dividendos é calculada pelo motor"
+          : regime === "AJUSTE"
+            ? "o IR deste rendimento já está no IRPF devido do ajuste (coluna irpf_devido_ajuste da aba clientes); somá-lo aqui contaria duas vezes"
+            : "este rendimento é isento";
+      issues.warning(sheet, row.rowNumber, "ir_retido_ou_pago", tax, `valor ignorado: ${reason}`);
     }
     if (payerCode !== undefined && type === "DIVIDENDOS" && !companies.has(payerCode)) {
       if (!missingCompanies.has(payerCode)) {
@@ -430,7 +455,7 @@ export function importWorkbook(
     if (month !== undefined) line.month = month;
     if (payerCode !== undefined) line.payerCode = payerCode;
     if (type === "DIVIDENDOS") line.transition = transition === true;
-    if (tax !== undefined && type !== "DIVIDENDOS") line.taxWithheld = tax;
+    if (tax !== undefined && taxApplies) line.taxWithheld = tax;
     clientFor(str(values, "codigo_cliente") as string, sheet, row.rowNumber).incomes.push(line);
     incomeLines++;
   }
@@ -472,9 +497,10 @@ export function importWorkbook(
         const payer = companies.get(code);
         return payer ? [payer] : [];
       });
-      const built: ClientInput = { ...client, payers };
-      if (client.positions.length === 0) delete (built as { positions?: unknown }).positions;
-      return built;
+      const { positions: clientPositions, ...rest } = client;
+      return clientPositions.length > 0
+        ? { ...rest, payers, positions: clientPositions }
+        : { ...rest, payers };
     });
 
   for (const client of result) {

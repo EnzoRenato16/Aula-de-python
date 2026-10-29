@@ -20,7 +20,7 @@ const PT_BR_DECIMAL = /^\d{1,3}(\.\d{3})*(,\d+)?$|^\d+(,\d+)?$/;
 
 /** Converts a cell into a canonical non-negative decimal string, or null if unparseable. */
 function toCanonicalDecimal(cell: Cell): string | null {
-  let text = cell.text.replace(/ /g, " ").trim();
+  let text = cell.text.replace(/\u00a0/g, " ").trim();
   if (cell.numeric) return PLAIN.test(text) ? new D(text).toString() : null;
   text = text.replace(/^R\$\s*/i, "").replace(/\s+/g, "");
   if (text === "") return null;
@@ -34,6 +34,9 @@ function toCanonicalDecimal(cell: Cell): string | null {
 
 /** Money: ≥ 0, rounded half up to cents (flagged when rounding changed the value). */
 export function parseMoney(cell: Cell): Parsed<string, { rounded: boolean }> {
+  if (cell.text.trim().startsWith("-")) {
+    return { ok: false, error: `valor negativo não é aceito: "${cell.text}"` };
+  }
   const canonical = toCanonicalDecimal(cell);
   if (canonical === null) {
     return { ok: false, error: `valor inválido: "${cell.text}" (use 60.000,00 ou 60000,00)` };
@@ -46,8 +49,9 @@ export function parseMoney(cell: Cell): Parsed<string, { rounded: boolean }> {
 const HUNDRED = new D(100);
 
 /**
- * Rate as a fraction. "32%" → 0.32; plain ≤ 1 → fraction; plain in (1, 100]
- * → percentage (flagged); above 100% → error.
+ * Rate as a fraction. "32%" → 0.32; plain below 1 → fraction ("0,32");
+ * plain from 1 to 100 → percentage, flagged ("32" → 32%, "1" → 1%);
+ * above 100% → error. Percent-formatted Excel cells store the fraction.
  */
 export function parseRate(cell: Cell): Parsed<string, { interpretedAsPercent: boolean }> {
   const raw = cell.text.trim();
@@ -62,7 +66,7 @@ export function parseRate(cell: Cell): Parsed<string, { interpretedAsPercent: bo
   let interpretedAsPercent = false;
   if (isPercent) {
     value = value.dividedBy(HUNDRED);
-  } else if (value.greaterThan(1)) {
+  } else if (value.greaterThanOrEqualTo(1)) {
     value = value.dividedBy(HUNDRED);
     interpretedAsPercent = true;
   }
@@ -84,7 +88,11 @@ const YES = new Set(["s", "sim", "y", "yes", "true", "verdadeiro", "1", "x"]);
 const NO = new Set(["n", "nao", "no", "false", "falso", "0"]);
 
 export function parseYesNo(cell: Cell): Parsed<boolean> {
-  const raw = cell.text.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+  const raw = cell.text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
   if (YES.has(raw)) return { ok: true, value: true };
   if (NO.has(raw)) return { ok: true, value: false };
   return { ok: false, error: `use S ou N (recebido: "${cell.text}")` };
@@ -104,12 +112,50 @@ export function parseCode(cell: Cell): Parsed<string> {
   return { ok: true, value };
 }
 
-/** Returns the kind of personal data a text looks like, or null. LGPD guard. */
+/** Check digit of CPF/CNPJ (mod 11) over `digits` with the given weights. */
+function checkDigit(digits: readonly number[], weights: readonly number[]): number {
+  const total = weights.reduce((acc, weight, index) => acc + weight * (digits[index] ?? 0), 0);
+  const rest = total % 11;
+  return rest < 2 ? 0 : 11 - rest;
+}
+
+export function isValidCpf(text: string): boolean {
+  const digits = [...text.replace(/\D/g, "")].map((char) => Number.parseInt(char, 10));
+  if (digits.length !== 11 || digits.every((digit) => digit === digits[0])) return false;
+  const first = checkDigit(digits, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const second = checkDigit(digits, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return digits[9] === first && digits[10] === second;
+}
+
+export function isValidCnpj(text: string): boolean {
+  const digits = [...text.replace(/\D/g, "")].map((char) => Number.parseInt(char, 10));
+  if (digits.length !== 14 || digits.every((digit) => digit === digits[0])) return false;
+  const first = checkDigit(digits, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const second = checkDigit(digits, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return digits[12] === first && digits[13] === second;
+}
+
+const FORMATTED_CPF = /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/;
+const FORMATTED_CNPJ = /\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/;
+const EMAIL = /[^\s@]+@[^\s@]+\.[^\s@]+/;
+/** Phone only when written like one: (11) 98765-4321, 11 98765-4321, +55 11 ... */
+const PHONE =
+  /(\+55\s?)?\(\d{2}\)\s?9?\d{4}-?\d{4}|\b\d{2}\s9?\d{4}-\d{4}\b|\+55\s?\d{2}\s?9?\d{4}-?\d{4}/;
+
+/**
+ * Returns the kind of personal data a text looks like, or null (LGPD guard).
+ * Bare digit runs count as CPF/CNPJ only if the check digits are valid, so
+ * numeric internal codes such as "1002003004" are not rejected by mistake.
+ */
 export function looksLikePersonalData(text: string): "CPF" | "CNPJ" | "e-mail" | "telefone" | null {
   const value = text.trim();
-  if (/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/.test(value)) return "CNPJ";
-  if (/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/.test(value)) return "CPF";
-  if (/[^\s@]+@[^\s@]+\.[^\s@]+/.test(value)) return "e-mail";
-  if (/\(?\d{2}\)?\s?9?\d{4}-?\d{4}\b/.test(value)) return "telefone";
+  if (FORMATTED_CNPJ.test(value)) return "CNPJ";
+  if (FORMATTED_CPF.test(value)) return "CPF";
+  for (const run of value.match(/\d{11,14}/g) ?? []) {
+    if (run.length === 14 && isValidCnpj(run)) return "CNPJ";
+    if (run.length === 11 && isValidCpf(run)) return "CPF";
+  }
+  if (EMAIL.test(value)) return "e-mail";
+  if (PHONE.test(value)) return "telefone";
   return null;
 }

@@ -77,7 +77,7 @@ export const SHEETS: Record<SheetKey, SheetDefinition> = {
         "irpf_devido_ajuste",
         "money",
         false,
-        "IRPF DEVIDO na declaração de ajuste de 2027 (ano-calendário 2026), informado pelo contador. Não é o imposto retido nem o pago. Em branco: o sistema estima e sinaliza.",
+        "IRPF DEVIDO na declaração de ajuste anual do ano-calendário simulado (ex.: declaração 2027 para 2026), informado pelo contador. Não é o imposto retido nem o pago. Em branco: o sistema estima e sinaliza.",
         "185000,00",
         20,
       ),
@@ -127,7 +127,7 @@ export const SHEETS: Record<SheetKey, SheetDefinition> = {
     title: "rendimentos",
     required: true,
     description:
-      "Formato longo: uma linha por cliente × tipo de rendimento × mês. Regime de caixa: valores recebidos/realizados em 2026.",
+      "Formato longo: uma linha por cliente × tipo de rendimento × mês. Regime de caixa: valores recebidos/realizados no ano-calendário.",
     columns: [
       col("codigo_cliente", "code", true, "Código pseudônimo do cliente.", "CLI-0001"),
       col(
@@ -218,7 +218,7 @@ export const SHEET_ORDER: readonly SheetKey[] = ["clientes", "empresas", "rendim
 export function normalizeHeader(header: string): string {
   return header
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, "_");

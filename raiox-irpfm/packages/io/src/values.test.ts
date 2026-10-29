@@ -46,6 +46,11 @@ describe("parseMoney", () => {
   it.each(["abc", "1,2,3", "-100", "12.34,5,6", "R$"])("rejeita %s", (input) => {
     expect(parseMoney(text(input)).ok).toBe(false);
   });
+
+  it("explica que valor negativo não é aceito", () => {
+    const result = parseMoney(num("-100"));
+    expect(result.ok === false && result.error).toContain("negativo");
+  });
 });
 
 describe("parseRate", () => {
@@ -60,8 +65,9 @@ describe("parseRate", () => {
     expect(result.ok && result.value).toBe(expected);
   });
 
-  it("número entre 1 e 100 sem % é lido como percentual, com aviso", () => {
+  it("número de 1 a 100 sem % é lido como percentual, com aviso", () => {
     expect(parseRate(text("32"))).toEqual({ ok: true, value: "0.32", interpretedAsPercent: true });
+    expect(parseRate(text("1"))).toEqual({ ok: true, value: "0.01", interpretedAsPercent: true });
   });
 
   it("rejeita acima de 100%", () => {
@@ -97,10 +103,20 @@ describe("outros campos", () => {
   it("detecta CPF, CNPJ, e-mail e telefone", () => {
     expect(looksLikePersonalData("123.456.789-09")).toBe("CPF");
     expect(looksLikePersonalData("12345678909")).toBe("CPF");
+    expect(looksLikePersonalData("CLI-12345678909")).toBe("CPF");
     expect(looksLikePersonalData("12.345.678/0001-95")).toBe("CNPJ");
+    expect(looksLikePersonalData("11222333000181")).toBe("CNPJ");
     expect(looksLikePersonalData("fulano@exemplo.com")).toBe("e-mail");
     expect(looksLikePersonalData("(11) 99876-5432")).toBe("telefone");
+    expect(looksLikePersonalData("11 99876-5432")).toBe("telefone");
+    expect(looksLikePersonalData("+55 11 998765432")).toBe("telefone");
+  });
+
+  it("não confunde códigos internos numéricos com dados pessoais", () => {
     expect(looksLikePersonalData("CLI-0001")).toBeNull();
     expect(looksLikePersonalData("Dr. R.")).toBeNull();
+    expect(looksLikePersonalData("1002003004")).toBeNull();
+    expect(looksLikePersonalData("12345678901")).toBeNull(); // dígitos verificadores inválidos
+    expect(looksLikePersonalData("EMP-2024-1234")).toBeNull();
   });
 });
