@@ -1,0 +1,746 @@
+import { money } from "../money.ts";
+import type { IncomeTypeDefinition, RuleDefinition, RuleSet } from "./types.ts";
+
+/**
+ * Rules for calendar year 2026 (exercício 2027).
+ * Every value here is traceable to docs/REGRAS.md. Change a value → bump `version`.
+ */
+
+const rules: RuleDefinition[] = [
+  // Art. 6º-A: monthly withholding on dividends
+  {
+    id: "R-6A-01",
+    title: "Retenção de 10% sobre o total quando a mesma PJ paga mais de R$ 50 mil no mês",
+    legalRef: "Lei 9.250, art. 6º-A, caput; IN 1.500, art. 23-A",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-02",
+    title: "Sem deduções na base da retenção",
+    legalRef: "Lei 9.250, art. 6º-A, §1º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-03",
+    title: "Pagamentos da mesma PJ no mesmo mês são somados",
+    legalRef: "Lei 9.250, art. 6º-A, §2º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-04",
+    title: "Exatamente R$ 50 mil no mês não sofre retenção",
+    legalRef: "Lei 9.250, art. 6º-A, caput (“superior a”)",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-05",
+    title: "O limite é por par empresa–pessoa; PJs diferentes não se somam",
+    legalRef: "Lei 9.250, art. 6º-A, caput",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-06",
+    title: "Lucros da regra de transição não sofrem retenção",
+    legalRef: "Lei 9.250, art. 6º-A, §3º; P&R Receita 7 a 9",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-07",
+    title: "Lucros da transição não contam para o limite mensal de R$ 50 mil",
+    legalRef: "Interpretação do art. 6º-A, §3º",
+    status: "PENDENTE",
+    pendingNote:
+      "Única leitura compatível com “não se sujeitam”; sem texto oficial sobre o caso misto.",
+  },
+  {
+    id: "R-6A-08",
+    title: "Retenção sobre dividendos de empresas do Simples Nacional",
+    legalRef: "P&R Receita 10; LC 123/2006, art. 14",
+    status: "PENDENTE",
+    pendingNote: "Padrão: aplica (posição da Receita). Conservador: aplica.",
+  },
+  {
+    id: "R-6A-09",
+    title: "Capitalização de lucros é “emprego”: sofre retenção e entra no IRPFM",
+    legalRef: "P&R Receita 12",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-10",
+    title: "A retenção antecipa o IRPFM; o excesso é restituído no ajuste",
+    legalRef: "Lei 9.250, art. 16-A, §§5º e 6º; P&R Receita 4",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-6A-11",
+    title: "Prazo de aprovação da transição (31/12/2025; liminar STF: 31/01/2026)",
+    legalRef: "Lei 9.250, art. 6º-A, §3º, II; STF ADI 7.912",
+    status: "PENDENTE",
+    pendingNote: "O motor não decide: cada linha de dividendo é marcada como transição S/N.",
+  },
+  // Art. 16-A: annual minimum tax
+  {
+    id: "R-16A-01",
+    title: "Sujeição: soma de todos os rendimentos do ano acima de R$ 600 mil",
+    legalRef: "Lei 9.250, art. 16-A, caput",
+    status: "PENDENTE",
+    pendingNote:
+      "Testado sobre o total bruto. Escolha neutra: com base de até R$ 600 mil a alíquota é zero.",
+  },
+  {
+    id: "R-16A-02",
+    title: "Regime de caixa: rendimentos recebidos no ano-calendário",
+    legalRef: "Lei 9.250, art. 16-A, caput e §1º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-03",
+    title: "Início: exercício 2027, ano-calendário 2026",
+    legalRef: "Lei 9.250, art. 16-A, caput",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-04",
+    title: "Base ampla: inclui isentos, alíquota zero, exclusivos, definitivos e atividade rural",
+    legalRef: "Lei 9.250, art. 16-A, §1º, caput",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-05",
+    title: "Ganhos líquidos tributados em bolsa/balcão organizado entram na base",
+    legalRef: "Lei 9.250, art. 16-A, §1º, I (parte final)",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-06",
+    title: "Ganho isento em ações (vendas até R$ 20 mil/mês) entra na base",
+    legalRef: "Lei 9.250, art. 16-A, §1º, I e XI",
+    status: "PENDENTE",
+    pendingNote: "Padrão: entra. Conservador: entra.",
+  },
+  {
+    id: "R-16A-07",
+    title: "Rendimentos de FII/Fiagro qualificados saem; os não qualificados entram",
+    legalRef: "Lei 9.250, art. 16-A, §1º, V, “i” e “j”",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-08",
+    title: "Lucros e dividendos de PJ brasileira entram, salvo os da transição",
+    legalRef: "Lei 9.250, art. 16-A, §1º; Lei 9.249, art. 10",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-09",
+    title: "Lista de exclusões é taxativa",
+    legalRef: "Lei 9.250, art. 16-A, §1º (“exclusivamente”)",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-10",
+    title: "Base de até R$ 600 mil: alíquota zero",
+    legalRef: "Lei 9.250, art. 16-A, §2º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-11",
+    title: "Faixa de transição: alíquota % = base ÷ 60.000 − 10",
+    legalRef: "Lei 9.250, art. 16-A, §2º, II",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-12",
+    title: "Base a partir de R$ 1,2 milhão: alíquota de 10%",
+    legalRef: "Lei 9.250, art. 16-A, §2º, I",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-13",
+    title: "A alíquota não é arredondada",
+    legalRef: "Silêncio da Lei 9.250, art. 16-A, §2º",
+    status: "PENDENTE",
+    pendingNote: "Precisão total; só os valores em reais são arredondados (R-ARR-01).",
+  },
+  {
+    id: "R-16A-14",
+    title: "IRPFM bruto = alíquota × base",
+    legalRef: "Lei 9.250, art. 16-A, §3º, caput",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-15",
+    title: "Dedução I: IRPF devido na declaração de ajuste",
+    legalRef: "Lei 9.250, art. 16-A, §3º, I",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-16",
+    title: "Deduções II e IV só sobre rendimentos incluídos na base",
+    legalRef: "Lei 9.250, art. 16-A, §3º, II e IV",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-17",
+    title: "Dedução III: IR da Lei 14.754/2023 (exterior)",
+    legalRef: "Lei 9.250, art. 16-A, §3º, III",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-18",
+    title: "Dedução V: redutor do art. 16-B",
+    legalRef: "Lei 9.250, art. 16-A, §3º, V",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-19",
+    title: "Piso zero do IRPFM devido",
+    legalRef: "Lei 9.250, art. 16-A, §4º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-20",
+    title: "IRRF de dividendos deduzido depois do piso; pode gerar restituição",
+    legalRef: "Lei 9.250, art. 16-A, §§4º e 5º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-21",
+    title: "O saldo do IRPFM soma-se ao saldo do ajuste anual",
+    legalRef: "Lei 9.250, art. 16-A, §6º; art. 13",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-22",
+    title: "IRPF do ajuste: informado ou estimado (tabela 2026, desconto simplificado)",
+    legalRef: "IN 1.500, Anexo VII, X; Lei 9.250, arts. 10, X, e 11-A",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-23",
+    title: "IR de cada linha: informado ou estimado pela alíquota mínima do regime",
+    legalRef: "Decisão de produto (estimativa sinalizada)",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-24",
+    title: "Estimativa de IR sobre JCP: 17,5% a partir de 2026",
+    legalRef: "LC 224/2025, art. 8º (Lei 9.249, art. 9º, §2º)",
+    status: "PENDENTE",
+    pendingNote: "Confirmado por fontes secundárias e nota da Receita; texto primário não lido.",
+  },
+  // §1º exclusions
+  {
+    id: "R-16A-EX-I",
+    title: "Exclusão: ganhos de capital fora de bolsa",
+    legalRef: "Lei 9.250, art. 16-A, §1º, I",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-II",
+    title: "Exclusão: RRA tributados exclusivamente na fonte",
+    legalRef: "Lei 9.250, art. 16-A, §1º, II",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-III",
+    title: "Exclusão: doação em adiantamento da legítima ou herança",
+    legalRef: "Lei 9.250, art. 16-A, §1º, III",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-IV",
+    title: "Exclusão: caderneta de poupança",
+    legalRef: "Lei 9.250, art. 16-A, §1º, IV",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-V",
+    title: "Exclusão: LH, LCI, CRI, LIG, LCD, incentivadas, fundos de infra, FIP-IE, FII e Fiagro",
+    legalRef: "Lei 9.250, art. 16-A, §1º, V",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-VI",
+    title: "Exclusão: CDA, WA, CDCA, LCA e CRA",
+    legalRef: "Lei 9.250, art. 16-A, §1º, VI",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-VII",
+    title: "Exclusão: CPR com liquidação financeira negociada no mercado financeiro",
+    legalRef: "Lei 9.250, art. 16-A, §1º, VII",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-VIII",
+    title: "Exclusão: parcela isenta da atividade rural",
+    legalRef: "Lei 9.250, art. 16-A, §1º, VIII",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-IX",
+    title: "Exclusão: indenizações (exceto lucros cessantes)",
+    legalRef: "Lei 9.250, art. 16-A, §1º, IX",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-X",
+    title: "Exclusão: aposentadoria e pensão isentas por moléstia grave",
+    legalRef: "Lei 9.250, art. 16-A, §1º, X",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-XI",
+    title: "Exclusão: TVM isentos ou de alíquota zero, exceto ações",
+    legalRef: "Lei 9.250, art. 16-A, §1º, XI",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-XII",
+    title: "Exclusão: lucros e dividendos da regra de transição (pagos de 2026 a 2028)",
+    legalRef: "Lei 9.250, art. 16-A, §1º, XII",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16A-EX-§7",
+    title: "Exclusão: repasses obrigatórios sobre emolumentos de cartórios",
+    legalRef: "Lei 9.250, art. 16-A, §7º",
+    status: "CONFIRMADA",
+  },
+  // Art. 16-B: reducer
+  {
+    id: "R-16B-01",
+    title: "Redutor por PJ = dividendos × máx(0, alíq. PJ + alíq. IRPFM − limite)",
+    legalRef: "Lei 9.250, art. 16-B, §2º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16B-02",
+    title: "Limites: 34% geral, 40% seguradoras e financeiras, 45% bancos",
+    legalRef: "Lei 9.250, art. 16-B, §1º",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16B-03",
+    title: "Alíquota efetiva da PJ = (IRPJ + CSLL devidos) ÷ lucro contábil (informada)",
+    legalRef: "Lei 9.250, art. 16-B, §3º, I e III",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16B-04",
+    title: "Definição da alíquota efetiva do IRPFM (estratégia plugável)",
+    legalRef: "Lei 9.250, art. 16-B, §3º, II",
+    status: "PENDENTE",
+    pendingNote: "Padrão: INCREMENTAL_NET. Conservador: menor redutor entre as estratégias.",
+  },
+  {
+    id: "R-16B-05",
+    title: "Denominador da alíquota efetiva do IRPFM",
+    legalRef: "Lei 9.250, art. 16-B, §3º, II, “b”",
+    status: "PENDENTE",
+    pendingNote:
+      "Padrão e conservador: dividendos na base. A alternativa (todos os recebidos) contraria o §1º, XII.",
+  },
+  {
+    id: "R-16B-06",
+    title: "Só dividendos incluídos na base entram no redutor",
+    legalRef: "Lei 9.250, art. 16-B, §3º, II, “a”",
+    status: "CONFIRMADA",
+  },
+  {
+    id: "R-16B-07",
+    title: "Redutor depende de demonstrações financeiras e de regulamento",
+    legalRef: "Lei 9.250, art. 16-B, §§4º a 8º",
+    status: "PENDENTE",
+    pendingNote: "O motor usa a alíquota efetiva informada pelo escritório.",
+  },
+  {
+    id: "R-16B-08",
+    title: "Holdings: vale a alíquota efetiva informada da pagadora",
+    legalRef: "Lei 9.250, art. 16-B, §§5º e 6º",
+    status: "PENDENTE",
+    pendingNote: "O motor não consolida grupos; a regulamentação pode permitir.",
+  },
+  // Rounding
+  {
+    id: "R-ARR-01",
+    title: "Valores em reais arredondados ao centavo, meio para cima",
+    legalRef: "Sem regra oficial para o IRPFM",
+    status: "PENDENTE",
+    pendingNote: "Arredondamento em pontos definidos, num único lugar do código.",
+  },
+];
+
+const included = { kind: "INCLUDED" } as const;
+const excluded = (ruleId: string) => ({ kind: "EXCLUDED", ruleId }) as const;
+const rate = (value: string) => money(value);
+
+function incomeType(
+  definition: Omit<
+    IncomeTypeDefinition,
+    "requiresMonth" | "requiresPayer" | "investable" | "estimatedTaxRate"
+  > &
+    Partial<
+      Pick<
+        IncomeTypeDefinition,
+        "requiresMonth" | "requiresPayer" | "investable" | "estimatedTaxRate"
+      >
+    >,
+): IncomeTypeDefinition {
+  return {
+    requiresMonth: false,
+    requiresPayer: false,
+    investable: false,
+    estimatedTaxRate: null,
+    ...definition,
+  };
+}
+
+const incomeTypes: IncomeTypeDefinition[] = [
+  incomeType({
+    code: "SALARIO",
+    label: "Salários, pró-labore e trabalho",
+    help: "Rendimentos do trabalho tributáveis no ajuste anual (salário, pró-labore, honorários). Valor bruto anual ou mensal.",
+    example: "480000.00",
+    base: included,
+    regime: "AJUSTE",
+  }),
+  incomeType({
+    code: "ALUGUEL",
+    label: "Aluguéis",
+    help: "Aluguéis recebidos, tributáveis no ajuste ou no carnê-leão.",
+    example: "96000.00",
+    base: included,
+    regime: "AJUSTE",
+  }),
+  incomeType({
+    code: "APOSENTADORIA",
+    label: "Aposentadoria e pensão tributáveis",
+    help: "Proventos de aposentadoria, reforma ou pensão tributáveis (não usar para moléstia grave).",
+    example: "120000.00",
+    base: included,
+    regime: "AJUSTE",
+  }),
+  incomeType({
+    code: "ATIVIDADE_RURAL",
+    label: "Resultado tributável da atividade rural",
+    help: "Resultado da atividade rural apurado nos arts. 4º, 5º e 14 da Lei 8.023/1990.",
+    example: "150000.00",
+    base: included,
+    regime: "AJUSTE",
+  }),
+  incomeType({
+    code: "OUTROS_TRIBUTAVEIS",
+    label: "Outros tributáveis no ajuste",
+    help: "Qualquer outro rendimento tributável na declaração de ajuste.",
+    example: "30000.00",
+    base: included,
+    regime: "AJUSTE",
+  }),
+  incomeType({
+    code: "DECIMO_TERCEIRO",
+    label: "13º salário",
+    help: "13º salário (tributação exclusiva na fonte). Informe o IR retido.",
+    example: "40000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+  }),
+  incomeType({
+    code: "PLR",
+    label: "Participação nos lucros (PLR)",
+    help: "PLR com tributação exclusiva na fonte. Informe o IR retido.",
+    example: "200000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+  }),
+  incomeType({
+    code: "JCP",
+    label: "Juros sobre capital próprio",
+    help: "JCP recebido (tributação exclusiva). Sem IR informado, estimamos 17,5%.",
+    example: "25000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+    estimatedTaxRate: rate("0.175"),
+  }),
+  incomeType({
+    code: "RENDA_FIXA",
+    label: "Renda fixa tributada",
+    help: "Rendimento realizado no ano (resgate, vencimento, cupom) de CDB, RDB, LC, Tesouro Direto, debêntures comuns. Sem IR informado, estimamos 15%.",
+    example: "85000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+    estimatedTaxRate: rate("0.15"),
+    investable: true,
+  }),
+  incomeType({
+    code: "FUNDOS",
+    label: "Fundos de investimento tributados",
+    help: "Rendimentos de fundos tributados (inclui come-cotas). Sem IR informado, estimamos 15%.",
+    example: "60000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+    estimatedTaxRate: rate("0.15"),
+    investable: true,
+  }),
+  incomeType({
+    code: "PREVIDENCIA",
+    label: "Previdência (regime regressivo)",
+    help: "Parcela de rendimentos de resgates de PGBL/VGBL no regime regressivo. Sem IR informado, estimamos 10%.",
+    example: "50000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+    estimatedTaxRate: rate("0.10"),
+    investable: true,
+  }),
+  incomeType({
+    code: "FII_TRIBUTADO",
+    label: "FII/Fiagro tributados",
+    help: "Rendimentos de FII ou Fiagro que não cumprem os requisitos de isenção. Sem IR informado, estimamos 20%.",
+    example: "12000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+    estimatedTaxRate: rate("0.20"),
+    investable: true,
+  }),
+  incomeType({
+    code: "OUTROS_EXCLUSIVOS",
+    label: "Outros de tributação exclusiva",
+    help: "Outros rendimentos com tributação exclusiva na fonte. Informe o IR retido.",
+    example: "10000.00",
+    base: included,
+    regime: "EXCLUSIVA",
+  }),
+  incomeType({
+    code: "GANHO_BOLSA",
+    label: "Ganho líquido em bolsa (tributado)",
+    help: "Ganho líquido tributado em bolsa ou balcão organizado (ações acima de R$ 20 mil/mês, day trade, opções, futuros, ETFs, venda de cotas de FII). Sem IR informado, estimamos 15%.",
+    example: "70000.00",
+    base: included,
+    regime: "DEFINITIVA",
+    estimatedTaxRate: rate("0.15"),
+  }),
+  incomeType({
+    code: "EXTERIOR_14754",
+    label: "Exterior (Lei 14.754/2023)",
+    help: "Rendimentos de aplicações financeiras no exterior e de entidades controladas, tributados pela Lei 14.754/2023. Sem IR informado, estimamos 15%.",
+    example: "90000.00",
+    base: included,
+    regime: "LEI_14754",
+    estimatedTaxRate: rate("0.15"),
+    investable: true,
+  }),
+  incomeType({
+    code: "DIVIDENDOS",
+    label: "Lucros e dividendos",
+    help: "Lucros e dividendos de PJ no Brasil, inclusive capitalização de lucros. Uma linha por empresa e mês. Informe codigo_empresa e se é da regra de transição.",
+    example: "60000.00",
+    base: included,
+    regime: "DIVIDENDO",
+    requiresMonth: true,
+    requiresPayer: true,
+  }),
+  incomeType({
+    code: "GANHO_BOLSA_ISENTO",
+    label: "Ganho isento em ações (até R$ 20 mil/mês)",
+    help: "Ganho líquido isento na venda de ações com vendas de até R$ 20 mil no mês. Entra na base por padrão (regra PENDENTE R-16A-06).",
+    example: "35000.00",
+    base: { kind: "CHOICE", choice: "exemptStockGainsInBase", ruleId: "R-16A-06" },
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "OUTROS_ISENTOS",
+    label: "Outros isentos (não excluídos)",
+    help: "Rendimentos isentos que não estão na lista de exclusões (ex.: pensão alimentícia). Entram na base.",
+    example: "20000.00",
+    base: included,
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "GANHO_CAPITAL",
+    label: "Ganho de capital (fora de bolsa)",
+    help: "Ganho na venda de imóveis, participações societárias fora de bolsa e outros bens. Fica fora da base.",
+    example: "300000.00",
+    base: excluded("R-16A-EX-I"),
+    regime: "DEFINITIVA",
+  }),
+  incomeType({
+    code: "RRA_EXCLUSIVO",
+    label: "Rendimentos recebidos acumuladamente",
+    help: "RRA tributados exclusivamente na fonte (sem opção pelo ajuste). Ficam fora da base.",
+    example: "80000.00",
+    base: excluded("R-16A-EX-II"),
+    regime: "EXCLUSIVA",
+  }),
+  incomeType({
+    code: "DOACAO_HERANCA",
+    label: "Doação ou herança",
+    help: "Doação em adiantamento da legítima ou herança. Fica fora da base.",
+    example: "500000.00",
+    base: excluded("R-16A-EX-III"),
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "POUPANCA",
+    label: "Poupança",
+    help: "Rendimentos de caderneta de poupança. Ficam fora da base.",
+    example: "8000.00",
+    base: excluded("R-16A-EX-IV"),
+    regime: "ISENTO",
+    investable: true,
+  }),
+  ...(
+    [
+      ["LH", "Letra Hipotecária (LH)"],
+      ["LCI", "LCI"],
+      ["CRI", "CRI"],
+      ["LIG", "LIG"],
+      ["LCD", "LCD"],
+      ["DEBENTURE_INCENTIVADA", "Debênture incentivada (Lei 12.431)"],
+      ["FUNDO_INFRA", "Fundo de infraestrutura (Lei 12.431, art. 3º)"],
+      ["FIP_IE", "FIP-IE / FIP-PD&I (Lei 11.478)"],
+      ["FII_ISENTO", "FII com rendimento isento"],
+      ["FIAGRO_ISENTO", "Fiagro com rendimento isento"],
+    ] as const
+  ).map(([code, label]) =>
+    incomeType({
+      code,
+      label,
+      help: `Remuneração de ${label}. Fica fora da base (art. 16-A, §1º, V).`,
+      example: "40000.00",
+      base: excluded("R-16A-EX-V"),
+      regime: "ISENTO",
+      investable: true,
+    }),
+  ),
+  ...(
+    [
+      ["LCA", "LCA"],
+      ["CRA", "CRA"],
+      ["CDCA", "CDCA"],
+      ["CDA_WA", "CDA/WA"],
+    ] as const
+  ).map(([code, label]) =>
+    incomeType({
+      code,
+      label,
+      help: `Remuneração de ${label}. Fica fora da base (art. 16-A, §1º, VI).`,
+      example: "40000.00",
+      base: excluded("R-16A-EX-VI"),
+      regime: "ISENTO",
+      investable: true,
+    }),
+  ),
+  incomeType({
+    code: "CPR",
+    label: "CPR financeira",
+    help: "CPR com liquidação financeira negociada no mercado financeiro. Fica fora da base.",
+    example: "15000.00",
+    base: excluded("R-16A-EX-VII"),
+    regime: "ISENTO",
+    investable: true,
+  }),
+  incomeType({
+    code: "RURAL_ISENTA",
+    label: "Parcela isenta da atividade rural",
+    help: "Parcela isenta relativa à atividade rural. Fica fora da base.",
+    example: "50000.00",
+    base: excluded("R-16A-EX-VIII"),
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "INDENIZACAO",
+    label: "Indenizações",
+    help: "Indenização por acidente de trabalho ou danos materiais/morais (exceto lucros cessantes). Fica fora da base.",
+    example: "100000.00",
+    base: excluded("R-16A-EX-IX"),
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "MOLESTIA_GRAVE",
+    label: "Aposentadoria isenta por moléstia grave",
+    help: "Proventos de aposentadoria, reforma ou pensão isentos por moléstia grave (Lei 7.713, art. 6º, XIV e XXI). Ficam fora da base.",
+    example: "180000.00",
+    base: excluded("R-16A-EX-X"),
+    regime: "ISENTO",
+  }),
+  incomeType({
+    code: "TVM_ISENTO_OUTROS",
+    label: "Outros títulos isentos (exceto ações)",
+    help: "Outros títulos e valores mobiliários isentos ou de alíquota zero, exceto ações e participações societárias. Ficam fora da base.",
+    example: "10000.00",
+    base: excluded("R-16A-EX-XI"),
+    regime: "ISENTO",
+    investable: true,
+  }),
+  incomeType({
+    code: "REPASSE_CARTORIO",
+    label: "Repasses obrigatórios (cartórios)",
+    help: "Só para titulares de cartório: repasses obrigatórios sobre emolumentos. O valor é subtraído da base.",
+    example: "250000.00",
+    base: { kind: "SUBTRACTED", ruleId: "R-16A-EX-§7" },
+    regime: "BASE_DEDUCTION",
+  }),
+];
+
+export const RULES_2026: RuleSet = {
+  calendarYear: 2026,
+  version: "2026.1.0",
+  publishedAt: "2026-10-29",
+  sources: [
+    {
+      id: "L",
+      title: "Lei nº 15.270, de 26/11/2025",
+      url: "https://www2.camara.leg.br/legin/fed/lei/2025/lei-15270-26-novembro-2025-798354-publicacaooriginal-177117-pl.html",
+    },
+    {
+      id: "IN",
+      title: "Instrução Normativa RFB nº 2.299, de 17/12/2025",
+      url: "https://www.in.gov.br/",
+    },
+    {
+      id: "PR",
+      title: "Receita Federal: Perguntas e Respostas sobre altas rendas (lucros e dividendos), v2",
+      url: "https://www.gov.br/receitafederal/pt-br/assuntos/noticias/2025/dezembro/receita-federal-lanca-perguntas-e-respostas-sobre-tributacao-de-altas-rendas-consideracoes-sobre-lucros-e-dividendos/manual_padrao_rfb_per_tributacao_sutri_v2.pdf",
+    },
+  ],
+  monthlyWithholding: {
+    threshold: money("50000.00"),
+    rate: rate("0.10"),
+  },
+  minimumTax: {
+    threshold: money("600000.00"),
+    fullRateFrom: money("1200000.00"),
+    maxRate: rate("0.10"),
+    linearDivisor: money("60000"),
+    linearOffset: money("10"),
+  },
+  reducer: {
+    limits: {
+      GERAL: rate("0.34"),
+      FINANCEIRA: rate("0.40"),
+      BANCO: rate("0.45"),
+    },
+  },
+  irpfEstimate: {
+    // IN 1.500, Anexo VII, item X (IN 2.299, art. 7º): from exercício 2027.
+    annualTable: [
+      { upTo: money("29145.60"), rate: rate("0"), deduction: money("0") },
+      { upTo: money("33919.80"), rate: rate("0.075"), deduction: money("2185.92") },
+      { upTo: money("45012.60"), rate: rate("0.15"), deduction: money("4729.91") },
+      { upTo: money("55976.16"), rate: rate("0.225"), deduction: money("8105.85") },
+      { upTo: null, rate: rate("0.275"), deduction: money("10904.66") },
+    ],
+    simplifiedDiscountRate: rate("0.20"),
+    simplifiedDiscountCap: money("17640.00"),
+    reduction: {
+      fullUpTo: money("60000.00"),
+      fullMax: money("2694.15"),
+      phaseOutUpTo: money("88200.00"),
+      phaseOutConstant: money("8429.73"),
+      phaseOutFactor: rate("0.095575"),
+    },
+  },
+  marginalStep: money("1000.00"),
+  incomeTypes,
+  rules,
+};
