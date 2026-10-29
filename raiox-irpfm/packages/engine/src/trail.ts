@@ -179,7 +179,7 @@ export function buildTrail(
 
   const irpfLabel = {
     INFORMADO: "informado pelo contador",
-    ESTIMADO: "ESTIMATIVA: tabela 2026 com desconto simplificado",
+    ESTIMADO: `ESTIMATIVA: tabela ${result.calendarYear} com desconto simplificado`,
     AUSENTE: "não informado; considerado zero",
   }[result.deductions.irpfSource];
   steps.push(

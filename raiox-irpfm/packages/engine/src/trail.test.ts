@@ -131,3 +131,22 @@ describe("alíquota marginal efetiva (+R$ 1.000)", () => {
     expect(fixedIncome?.rate.toString()).toBe("0.15");
   });
 });
+
+describe("alíquota marginal: tipos com IR próprio desconhecido", () => {
+  it("não mostra 13º, PLR nem ganho de capital (o IR deles depende de tabela)", () => {
+    const result = calculateClient({
+      clientCode: "C",
+      irpfAdjustmentDue: "0",
+      incomes: [
+        { type: "DECIMO_TERCEIRO", amount: "50000", taxWithheld: "12000" },
+        { type: "PLR", amount: "100000", taxWithheld: "24000" },
+        { type: "GANHO_CAPITAL", amount: "300000", taxWithheld: "45000" },
+      ],
+    });
+    const types = result.marginalRates.map((rate) => rate.type);
+    expect(types).not.toContain("DECIMO_TERCEIRO");
+    expect(types).not.toContain("PLR");
+    expect(types).not.toContain("GANHO_CAPITAL");
+    expect(types).toContain("SALARIO");
+  });
+});

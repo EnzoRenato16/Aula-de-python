@@ -6,7 +6,7 @@ import { type Dec, maxDec, minDec, roundMoney, sum, ZERO } from "./money.ts";
 import { type NormalizedLine, normalizeClient, payerOf } from "./normalize.ts";
 import { computeMinimumReducer, computeReducer, type ReducerContext } from "./reducer.ts";
 import { DEFAULT_CALENDAR_YEAR, getRuleSet } from "./rules/index.ts";
-import type { RuleSet, TaxRegime } from "./rules/types.ts";
+import { type RuleSet, TAXED_REGIMES, type TaxRegime } from "./rules/types.ts";
 import { buildTrail } from "./trail.ts";
 import type {
   CalculationOptions,
@@ -48,8 +48,6 @@ function stripUndefined<T extends object>(value: T): Partial<T> {
     Object.entries(value).filter(([, entry]) => entry !== undefined),
   ) as Partial<T>;
 }
-
-const TAXED_REGIMES: ReadonlySet<TaxRegime> = new Set(["EXCLUSIVA", "DEFINITIVA", "LEI_14754"]);
 
 export interface EvaluatedLine extends NormalizedLine {
   inBase: boolean;

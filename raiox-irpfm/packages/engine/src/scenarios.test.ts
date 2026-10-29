@@ -123,6 +123,68 @@ describe("cenários", () => {
     expect(brl(comparison.scenario.totalIncome)).toBe(brl(comparison.base.totalIncome));
   });
 
+  it("dois movimentos da mesma classe não podem passar do saldo somados", () => {
+    const move = {
+      kind: "MOVE_ALLOCATION" as const,
+      fromClass: "RENDA_FIXA" as const,
+      toClass: "LCI" as const,
+      amount: "1500000.00",
+      toAnnualRate: "0.10",
+    };
+    expect(() => compareScenario(investor, { name: "duplo", operations: [move, move] })).toThrow(
+      /saldo/,
+    );
+  });
+
+  it("o rendimento da origem cai exatamente o valor do cenário, mesmo com várias linhas", () => {
+    const comparison = compareScenario(
+      {
+        ...investor,
+        incomes: [
+          { type: "SALARIO", amount: "500000.00" },
+          { type: "RENDA_FIXA", amount: "80000.01" },
+          { type: "RENDA_FIXA", amount: "80000.01" },
+          { type: "RENDA_FIXA", amount: "79999.98" },
+        ],
+      },
+      {
+        name: "três linhas",
+        operations: [
+          {
+            kind: "MOVE_ALLOCATION",
+            fromClass: "RENDA_FIXA",
+            toClass: "LCI",
+            amount: "333333.33",
+            toAnnualRate: "0.10",
+          },
+        ],
+      },
+    );
+    const origin = comparison.scenarioInput.incomes
+      .filter((line) => line.type === "RENDA_FIXA")
+      .reduce((total, line) => total + Math.round(Number(line.amount) * 100), 0);
+    // 240.000,00 − 333.333,33 × 12% (40.000,00) = 200.000,00
+    expect(origin).toBe(20_000_000);
+  });
+
+  it("calendário manual não aceita valores negativos", () => {
+    expect(() =>
+      compareScenario(dividendClient, {
+        name: "negativo",
+        operations: [
+          {
+            kind: "RESCHEDULE_DIVIDENDS",
+            payerCode: "PJ-A",
+            schedule: [
+              { month: 1, amount: "750000.00" },
+              { month: 2, amount: "-100000.00" },
+            ],
+          },
+        ],
+      }),
+    ).toThrow(/negativos/);
+  });
+
   it("calendário manual precisa somar o total da empresa", () => {
     expect(() =>
       compareScenario(dividendClient, {

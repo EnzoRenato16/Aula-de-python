@@ -2,7 +2,7 @@ import { calculateClient } from "./calculate.ts";
 import { formatBRL, formatPercent } from "./format.ts";
 import { D, type Dec, type DecimalInput, money, roundMoney, sum, ZERO } from "./money.ts";
 import { DEFAULT_CALENDAR_YEAR, findIncomeType, getRuleSet } from "./rules/index.ts";
-import type { IncomeTypeCode, RuleSet } from "./rules/types.ts";
+import { type IncomeTypeCode, type RuleSet, TAXED_REGIMES } from "./rules/types.ts";
 import type { CalculationOptions, ClientInput, ClientResult, IncomeLineInput } from "./types.ts";
 
 export class ScenarioError extends Error {
@@ -110,6 +110,8 @@ function nonNegativeRate(value: DecimalInput, what: string): Dec {
 
 interface WorkingState {
   incomes: IncomeLineInput[];
+  /** Position balances, updated by each MOVE_ALLOCATION of the scenario. */
+  balances: Map<IncomeTypeCode, Dec>;
   notes: string[];
   warnings: string[];
   deferred: Dec;
@@ -135,11 +137,14 @@ function moveAllocation(
   }
   const fromRate = nonNegativeRate(fromRateInput, "Taxa da origem");
   const toRate = nonNegativeRate(op.toAnnualRate, "Taxa do destino");
-  if (position && amount.greaterThan(money(position.balance))) {
+  const balance = state.balances.get(op.fromClass);
+  if (balance !== undefined && amount.greaterThan(balance)) {
     throw new ScenarioError(
-      `Valor movido (${formatBRL(amount)}) maior que o saldo de ${from.label} (${formatBRL(money(position.balance))})`,
+      `Valor movido (${formatBRL(amount)}) maior que o saldo de ${from.label} (${formatBRL(balance)})`,
     );
   }
+  if (balance !== undefined) state.balances.set(op.fromClass, balance.minus(amount));
+  state.balances.set(op.toClass, (state.balances.get(op.toClass) ?? ZERO).plus(amount));
 
   // Origin: reduce the yield realized in the year proportionally.
   const originLines = state.incomes.filter((line) => line.type === op.fromClass);
@@ -152,9 +157,9 @@ function moveAllocation(
     lost = originIncome;
   }
   if (originIncome.greaterThan(0)) {
-    const factor = originIncome.minus(lost).dividedBy(originIncome);
-    state.incomes = state.incomes.map((line) => {
-      if (line.type !== op.fromClass) return line;
+    const target = originIncome.minus(lost);
+    const factor = target.dividedBy(originIncome);
+    const scaledLines = originLines.map((line) => {
       const scaled: IncomeLineInput = {
         ...line,
         amount: roundMoney(money(line.amount).times(factor)),
@@ -164,12 +169,22 @@ function moveAllocation(
       }
       return scaled;
     });
+    // Rounding remainder goes to the last line, so the class total is exact.
+    const last = scaledLines.at(-1);
+    if (last) {
+      const drift = target.minus(sum(scaledLines.map((line) => money(line.amount))));
+      last.amount = money(last.amount).plus(drift);
+    }
+    state.incomes = [
+      ...state.incomes.filter((line) => line.type !== op.fromClass),
+      ...scaledLines.filter((line) => money(line.amount).greaterThan(0)),
+    ];
   }
 
   // Destination: annual yield with its own tax regime.
   const gained = roundMoney(amount.times(toRate));
   const destination: IncomeLineInput = { type: op.toClass, amount: gained };
-  if (to.regime === "EXCLUSIVA" || to.regime === "DEFINITIVA" || to.regime === "LEI_14754") {
+  if (TAXED_REGIMES.has(to.regime)) {
     const destinationPosition = input.positions?.find(
       (candidate) => candidate.assetClass === op.toClass,
     );
@@ -227,7 +242,10 @@ function rescheduleDividends(
       if (!Number.isInteger(entry.month) || entry.month < 1 || entry.month > 12) {
         throw new ScenarioError("mês do calendário deve ser de 1 a 12");
       }
-      return { month: entry.month, amount: money(entry.amount) };
+      const amount = money(entry.amount);
+      if (amount.isNegative())
+        throw new ScenarioError("valores do calendário não podem ser negativos");
+      return { month: entry.month, amount };
     });
     const scheduled = sum(schedule.map((entry) => entry.amount));
     if (!scheduled.equals(total)) {
@@ -305,6 +323,9 @@ export function applyScenario(
 ): { input: ClientInput; notes: string[]; warnings: string[]; deferred: Dec } {
   const state: WorkingState = {
     incomes: input.incomes.map((line) => ({ ...line })),
+    balances: new Map(
+      (input.positions ?? []).map((position) => [position.assetClass, money(position.balance)]),
+    ),
     notes: [],
     warnings: [],
     deferred: ZERO,

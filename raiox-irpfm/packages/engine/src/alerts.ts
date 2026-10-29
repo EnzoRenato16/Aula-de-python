@@ -5,7 +5,7 @@ import { D, sum } from "./money.ts";
 import type { RuleSet } from "./rules/types.ts";
 import type { Alert, ClientResult } from "./types.ts";
 
-/** "Near the threshold" window: within 10% below the R$ 600 mil threshold. */
+/** "Near the threshold" window: within 10% below the minimum-tax threshold. */
 const NEAR_THRESHOLD_FACTOR = new D("0.9");
 
 function uniqueLabels(lines: readonly EvaluatedLine[]): string {
@@ -45,7 +45,7 @@ export function buildAlerts(
     alerts.push({
       code: "IRPFM_A_PAGAR",
       severity: "critico",
-      message: `IRPFM a pagar na declaração de 2027: ${formatBRL(result.amountToPay)}.`,
+      message: `IRPFM a pagar na declaração de ${result.calendarYear + 1}: ${formatBRL(result.amountToPay)}.`,
       ruleIds: ["R-16A-19", "R-16A-21"],
     });
   }
@@ -67,7 +67,7 @@ export function buildAlerts(
     alerts.push({
       code: "IRRF_RESTITUIVEL",
       severity: "info",
-      message: `${formatBRL(result.amountToRefund)} da retenção sobre dividendos voltam na restituição do ajuste de 2027.`,
+      message: `${formatBRL(result.amountToRefund)} da retenção sobre dividendos voltam na restituição do ajuste de ${result.calendarYear + 1}.`,
       ruleIds: ["R-6A-10", "R-16A-20"],
     });
   }

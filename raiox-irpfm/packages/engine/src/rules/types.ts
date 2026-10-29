@@ -22,6 +22,13 @@ export type TaxRegime =
   | "ISENTO" // exempt or zero rate
   | "BASE_DEDUCTION"; // amount subtracted from the base (§7º, notary pass-throughs)
 
+/** Regimes whose tax is a line-level amount deducted by §3º II, III or IV. */
+export const TAXED_REGIMES: ReadonlySet<TaxRegime> = new Set([
+  "EXCLUSIVA",
+  "DEFINITIVA",
+  "LEI_14754",
+]);
+
 /** How an income type is treated in the IRPFM base (art. 16-A §1º). */
 export type BaseTreatment =
   | { kind: "INCLUDED" }

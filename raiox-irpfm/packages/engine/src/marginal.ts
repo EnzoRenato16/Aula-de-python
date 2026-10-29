@@ -1,6 +1,6 @@
 import { estimateIrpfAdjustment } from "./irpf-estimate.ts";
 import { type Dec, roundMoney, ZERO } from "./money.ts";
-import type { IncomeTypeCode, RuleSet } from "./rules/types.ts";
+import { type IncomeTypeCode, type RuleSet, TAXED_REGIMES } from "./rules/types.ts";
 import type {
   CalculationOptions,
   ClientInput,
@@ -40,9 +40,14 @@ export function computeMarginalRates(
 ): MarginalRate[] {
   const step = ruleSet.marginalStep;
   const present = new Set(base.byType.map((summary) => summary.type));
+  // Types whose own tax depends on a table we do not model (13º, PLR, RRA,
+  // ganho de capital) would show a misleadingly low marginal rate: left out.
+  const ownTaxUnknown = (definition: (typeof ruleSet.incomeTypes)[number]) =>
+    TAXED_REGIMES.has(definition.regime) && definition.estimatedTaxRate === null;
   const types = ruleSet.incomeTypes.filter(
     (definition) =>
       definition.base.kind !== "SUBTRACTED" &&
+      !ownTaxUnknown(definition) &&
       (present.has(definition.code) || STANDARD_TYPES.includes(definition.code)),
   );
 
