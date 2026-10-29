@@ -1,5 +1,5 @@
 import { desc, eq } from "drizzle-orm";
-import type { OrgContext } from "../context.ts";
+import { assertManager, type OrgContext } from "../context.ts";
 import type { Database } from "../db/index.ts";
 import { auditLog, user } from "../db/schema.ts";
 
@@ -15,10 +15,13 @@ export type AuditAction =
   | "scenario.save"
   | "scenario.delete"
   | "team.invite"
+  | "team.cancel_invite"
+  | "team.role"
   | "team.advisor_code"
   | "team.remove"
   | "pdf.download"
-  | "export.ranking";
+  | "export.ranking"
+  | "office.update";
 
 /**
  * Append-only audit trail. `metadata` must hold codes, counts and ids only,
@@ -43,6 +46,7 @@ export async function audit(
 }
 
 export async function listAudit(db: Database, ctx: OrgContext, limit = 200) {
+  assertManager(ctx);
   return db
     .select({
       id: auditLog.id,

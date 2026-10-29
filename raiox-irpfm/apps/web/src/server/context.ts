@@ -1,16 +1,10 @@
 import { DEFAULT_CALENDAR_YEAR } from "@raiox/engine";
 import { and, asc, eq } from "drizzle-orm";
+import type { OrgRole } from "../lib/roles.ts";
 import type { Database } from "./db/index.ts";
 import { member, organization, orgSettings, user } from "./db/schema.ts";
 
-/** Better Auth organization roles, shown in the UI as Dono, Admin and Assessor. */
-export type OrgRole = "owner" | "admin" | "member";
-
-export const ROLE_LABEL: Record<OrgRole, string> = {
-  owner: "Dono",
-  admin: "Admin",
-  member: "Assessor",
-};
+export { type OrgRole, ROLE_LABEL } from "../lib/roles.ts";
 
 /**
  * Everything a service needs to know about who is asking. Every query of the

@@ -2,6 +2,7 @@ import { ScenarioError } from "@raiox/engine";
 import { ZodError } from "zod";
 import { ForbiddenError, NotFoundError, type OrgContext } from "./context.ts";
 import { ImportError } from "./services/imports.ts";
+import { TeamError } from "./services/team.ts";
 import { requireContext } from "./session.ts";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -12,7 +13,8 @@ function userMessage(error: unknown): string | null {
     error instanceof ForbiddenError ||
     error instanceof NotFoundError ||
     error instanceof ImportError ||
-    error instanceof ScenarioError
+    error instanceof ScenarioError ||
+    error instanceof TeamError
   ) {
     return error.message;
   }
