@@ -1,4 +1,5 @@
-import { calculateClient } from "@raiox/engine";
+import { join } from "node:path";
+import { calculateClient, EngineInputError } from "@raiox/engine";
 import { renderClientReport } from "@raiox/report";
 import { eq } from "drizzle-orm";
 import { db } from "@/server/db";
@@ -8,6 +9,20 @@ import { calculationOptions } from "@/server/services/calculation";
 import { loadClientInputs } from "@/server/services/clients";
 import { getSettings } from "@/server/services/settings";
 import { getCurrentContext } from "@/server/session";
+
+/**
+ * WOFF files of IBM Plex Sans, a dependency of this app. Resolved from the app
+ * folder at runtime: the bundler rewrites module resolution inside packages.
+ */
+const FONTS_DIR = join(
+  process.cwd(),
+  "node_modules",
+  "@ibm",
+  "plex-sans",
+  "fonts",
+  "complete",
+  "woff",
+);
 
 /** One-page PDF of a client, recalculated with the office's current premises. */
 export async function GET(_request: Request, { params }: { params: Promise<{ code: string }> }) {
@@ -22,8 +37,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
     .select({ name: organization.name })
     .from(organization)
     .where(eq(organization.id, ctx.orgId));
-  const result = calculateClient(stored.input, calculationOptions(settings));
+  let result: ReturnType<typeof calculateClient>;
+  try {
+    result = calculateClient(stored.input, calculationOptions(settings));
+  } catch (error) {
+    if (!(error instanceof EngineInputError)) throw error;
+    return new Response(`Dados do cliente incompletos: ${error.message}`, { status: 422 });
+  }
   const pdf = await renderClientReport(result, {
+    fontsDir: FONTS_DIR,
     brand: {
       officeName: org?.name ?? ctx.orgName,
       ...(settings.primaryColor ? { primaryColor: settings.primaryColor } : {}),

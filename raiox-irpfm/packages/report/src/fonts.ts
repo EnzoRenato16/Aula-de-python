@@ -53,18 +53,25 @@ export function woffToSfnt(woff: Buffer): Buffer {
   return out;
 }
 
+/** Directory of the WOFF files of the official @ibm/plex-sans package, resolved by Node. */
+export function defaultFontsDir(): string {
+  const require = createRequire(import.meta.url);
+  const root = dirname(require.resolve("@ibm/plex-sans/package.json"));
+  return join(root, "fonts", "complete", "woff");
+}
+
 let registered = false;
 
 /**
  * Registers IBM Plex Sans (OFL-1.1, from the official @ibm/plex-sans package).
  * The full ("complete") cuts include every symbol the trail uses: − ≤ → × ÷ §.
+ * Bundlers rewrite module resolution, so an app that bundles this package
+ * passes the directory of the WOFF files explicitly.
  */
-export function registerFonts(): void {
+export function registerFonts(fontsDir: string = defaultFontsDir()): void {
   if (registered) return;
-  const require = createRequire(import.meta.url);
-  const root = dirname(require.resolve("@ibm/plex-sans/package.json"));
   const src = (name: string) => {
-    const woff = readFileSync(join(root, "fonts", "complete", "woff", `IBMPlexSans-${name}.woff`));
+    const woff = readFileSync(join(fontsDir, `IBMPlexSans-${name}.woff`));
     return `data:font/ttf;base64,${woffToSfnt(woff).toString("base64")}`;
   };
   Font.register({

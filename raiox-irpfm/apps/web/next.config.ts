@@ -15,6 +15,10 @@ const config: NextConfig = {
   // Type checking runs separately with TypeScript 7 (`pnpm typecheck`), the
   // same compiler as the rest of the monorepo.
   typescript: { ignoreBuildErrors: true },
+  // The PDF route reads the font files at runtime (see its FONTS_DIR).
+  outputFileTracingIncludes: {
+    "/api/clientes/[code]/pdf": ["./node_modules/@ibm/plex-sans/fonts/complete/woff/*.woff"],
+  },
   poweredByHeader: false,
   // The repository guide is CLAUDE.md; `next dev` must not write an AGENTS.md.
   agentRules: false,
