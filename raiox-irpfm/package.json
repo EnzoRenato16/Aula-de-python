@@ -1,0 +1,26 @@
+{
+  "name": "raiox-irpfm",
+  "private": true,
+  "description": "Raio-X IRPFM: simulação do impacto da Lei 15.270/2025 para escritórios de assessoria de investimentos.",
+  "type": "module",
+  "packageManager": "pnpm@12.16.1",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "pnpm -r build",
+    "verify": "pnpm lint && node scripts/check-no-float.mjs && pnpm typecheck && pnpm test && pnpm build",
+    "raiox": "pnpm --filter @raiox/cli exec tsx src/main.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@types/node": "22.20.5",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}
