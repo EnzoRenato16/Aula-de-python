@@ -22,15 +22,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <div>
               <dt className="text-sidebar-foreground/70">Retenção</dt>
               <dd className="mt-1 font-medium text-white">
-                {rate(rules.monthlyWithholding.rate)} acima de{" "}
-                {amount(rules.monthlyWithholding.threshold)}/mês
+                {rate(rules.monthlyWithholding.rate)} do total quando a empresa paga mais de{" "}
+                {amount(rules.monthlyWithholding.threshold)} no mês
               </dd>
             </div>
             <div>
               <dt className="text-sidebar-foreground/70">IRPFM</dt>
               <dd className="mt-1 font-medium text-white">
-                até {rate(rules.minimumTax.maxRate)} acima de {amount(rules.minimumTax.threshold)}
-                /ano
+                até {rate(rules.minimumTax.maxRate)} para quem recebe mais de{" "}
+                {amount(rules.minimumTax.threshold)} no ano
               </dd>
             </div>
             <div>
