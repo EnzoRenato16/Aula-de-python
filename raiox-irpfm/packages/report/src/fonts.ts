@@ -8,9 +8,8 @@ export const FONT_FAMILY = "IBM Plex Sans";
 
 /**
  * Converts a WOFF 1.0 font into a plain TrueType/OpenType (sfnt) buffer.
- * WOFF is just sfnt with zlib-compressed tables; fontkit re-inflates them on
- * every glyph lookup, which made each PDF ~3.5× slower. Converting once at
- * startup removes that cost. Spec: https://www.w3.org/TR/WOFF/
+ * WOFF is just sfnt with zlib-compressed tables. Rendering from WOFF was
+ * measured ~3.5× slower than from TTF, so we convert once at startup. Spec: https://www.w3.org/TR/WOFF/
  */
 export function woffToSfnt(woff: Buffer): Buffer {
   if (woff.toString("latin1", 0, 4) !== "wOFF") throw new Error("Not a WOFF 1.0 font");

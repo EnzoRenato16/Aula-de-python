@@ -20,10 +20,12 @@ SaaS B2B para escritórios de assessoria de investimentos: simula o impacto da L
 raiox-irpfm/
   packages/engine   motor puro (só decimal.js): regras, cálculo, trilha, alertas, cenários, score
   packages/io       template XLSX, leitura CSV/XLSX, validação Zod, erros por linha
-  packages/report   PDF por cliente (@react-pdf/renderer)
+  packages/report   PDF por cliente (@react-pdf/renderer) e resumo determinístico
+  packages/seed     clientes sintéticos determinísticos (8 perfis)
   apps/cli          `pnpm raiox ...` (pilotos antes do app web)
+  tools/conferencia implementação de referência em Python (dupla implementação)
   apps/web          Next.js (fase 3)
-  docs/             BRIEFING, REGRAS, ARQUITETURA, DECISOES, SCORE, fontes/
+  docs/             BRIEFING, REGRAS, ARQUITETURA, PLANO, CONFERENCIA, DECISOES, SCORE, fontes/
   scripts/          utilidades de CI
 ```
 O projeto mora na subpasta `raiox-irpfm/` do repositório `Aula-de-python` (a integração do GitHub não tem permissão para criar repositórios). Para extrair com histórico: `git subtree split --prefix raiox-irpfm -b raiox-only` e dar push num repositório novo.
@@ -32,11 +34,12 @@ O projeto mora na subpasta `raiox-irpfm/` do repositório `Aula-de-python` (a in
 | Comando | O que faz |
 |---|---|
 | `pnpm install` | instala dependências (pnpm 12, Node 22) |
-| `pnpm verify` | tudo o que a CI roda: lint, guarda de float, typecheck, testes, build |
+| `pnpm verify` | lint, guarda de float, guarda de caracteres invisíveis, typecheck, testes, build (a CI roda isso mais `pnpm audit` e a conferência em Python) |
 | `pnpm test` | Vitest em todos os pacotes |
 | `pnpm lint` / `pnpm format` | Biome (verificar / corrigir) |
 | `pnpm typecheck` | `tsc --noEmit` em cada pacote (TypeScript 7) |
-| `pnpm raiox <comando>` | CLI (ver `apps/cli/README.md`) |
+| `pnpm raiox <comando>` | CLI: `calcular`, `template`, `seed`, `regras` (ver `apps/cli/README.md`) |
+| `pnpm conferir` | compara o motor com a implementação de referência em Python (3 × 1.000 clientes) |
 | `docker compose up -d` | Postgres 18 local (fase 3) |
 
 ## Convenções
@@ -46,7 +49,14 @@ O projeto mora na subpasta `raiox-irpfm/` do repositório `Aula-de-python` (a in
 - Pacotes internos exportam `src/index.ts` diretamente; `build` emite `dist/` para provar que compila.
 - Valores monetários e taxas entram no motor como **string decimal canônica** (`"1234.56"`, `"0.32"`) ou `Decimal`, nunca `number`. A conversão de "1.234,56" / "32%" acontece em `packages/io`.
 - Todo passo da trilha de cálculo e todo alerta cita os IDs de regra (`R-...`) de `docs/REGRAS.md`.
-- Testes: `*.test.ts` ao lado do código. Golden tests em `golden.test.ts`; propriedades em `properties.test.ts`.
+- Testes: `*.test.ts` ao lado do código. Golden tests em `golden.test.ts`; propriedades em `properties.test.ts`. `FC_RUNS=5000 pnpm test` aumenta as execuções das propriedades.
+- Nunca escreva caracteres invisíveis no código (espaço não separável, marcas combinantes, BOM): use escapes `\u00a0`, `[\u0300-\u036f]`, `\uFEFF`. `scripts/check-source.mjs` barra.
+- Toda mudança de regra: atualize `docs/REGRAS.md`, `rules/<ano>.ts` (suba `version`) e `tools/conferencia/irpfm_referencia.py`; os três são conferidos por testes e pela CI.
+- Mensagens ao usuário não citam anos, limites ou alíquotas fixos: derive da `RuleSet`.
 
 ## Decisões
 Ver `docs/DECISOES.md` (registro de decisões, com data e motivo).
+
+## Estado atual
+- Fases 0, 1 e 2 (na CLI) feitas; fase 1 aguarda a conferência manual de 5 clientes pelo fundador (`docs/CONFERENCIA.md`).
+- Próximo: fase 3 (app web), conforme `docs/PLANO.md` e `docs/ARQUITETURA.md`.
