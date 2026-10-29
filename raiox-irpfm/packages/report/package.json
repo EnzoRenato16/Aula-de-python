@@ -1,0 +1,23 @@
+{
+  "name": "@raiox/report",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PDF de uma página por cliente (@react-pdf/renderer).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "@ibm/plex-sans": "1.1.0",
+    "@raiox/engine": "workspace:*",
+    "@react-pdf/renderer": "4.9.0",
+    "react": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}
